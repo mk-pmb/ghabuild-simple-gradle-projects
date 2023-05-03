@@ -1,4 +1,10 @@
 
+# Left-overs from checking out a job branch after experimental branch:
+/job
+/lentic
+
+
+
 # Auto-generated files:
 /tmp.*
 
