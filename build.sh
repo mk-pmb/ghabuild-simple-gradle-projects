@@ -25,6 +25,7 @@ function build_init () {
 
 
 function build_git_basecfg () {
+  [ "$USER" == runner ] || return 0
   local C='git config --global'
   $C user.name 'CI'
   $C user.email 'ci@example.net'
