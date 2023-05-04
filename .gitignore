@@ -1,4 +1,9 @@
 
+# Files from external repos:
+/job
+/lentic
+
+
 # Auto-generated files:
 /tmp.*
 
