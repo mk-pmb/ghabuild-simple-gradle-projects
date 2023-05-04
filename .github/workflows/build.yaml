@@ -1,0 +1,158 @@
+%YAML 1.1
+# ^-- ATTN: [2019-12-31] If you use a later version, Github will fail
+#     with a bogus error message "You have an error in your yaml syntax".
+# -*- coding: UTF-8, tab-width: 4 -*-
+---
+
+on:
+    workflow_call:
+
+jobs:
+    prep:
+        name: 'Prepare build matrix'
+        runs-on: ubuntu-latest
+        steps:
+            # I wish the next few lines would be something simple like
+            #
+            # - uses:   actions/checkout@v3
+            #   with:
+            #       repo: '${{ github.wfcalled_repo }}
+            #       ref:  '${{ github.wfcalled_ref }}
+            #
+            # but unfortunately, currently (2023-05-04), GitHub doesn't
+            # seem to provide any identity information to the remotely
+            # called workflow.
+            # The only repository information we get is the one that
+            # called us, i.e. the job description repo.
+            # So, in order to learn _anything_ about our job, the very
+            # first thing we have to do is clone the job repo.
+            # This is especially annoying because it will prevent us from
+            # later cloning the builder into the top-level of our workspace;
+            # instead, we'll have to clone it into a subdirectory and then
+            # do all our stuff in there.
+
+          - name: 'Clone the job description repo'
+            uses: actions/checkout@v3
+            with:
+                path: job  # see above for why
+
+            # Now for actually detecting our own identity. Fortunately,
+            # we can have very strong assumptions about the filename and
+            # content of the workflow file that called this. We can use
+            # that for an absurdly convoluted self-detection mechanism:
+
+          - name: 'Detect and install the builder'
+            id: findself
+            run: 'bash -c "$IGNITE"'
+            env:
+                IGNITE: |
+                    TI=tmp.ignite.sh
+                    WF_FROM="$GITHUB_WORKFLOW_REF"
+                    WF_FROM="${WF_FROM%@*}"
+                    WF_FROM="${WF_FROM#*/*/}"
+                    sed -nure "$WF_SED" -- job/"$WF_FROM" >"$TI"
+                    source -- "$TI"
+                    WF_CLONE="git clone --single-branch --branch=$WF_REF"$(
+                        )" -- https://github.com/$WF_USER/$WF_REPO.git b"$(
+                        )" && ln --symbolic -- b/build.sh B"
+                    ( cat -- "$TI"
+                      echo "WF_FROM=$WF_FROM"
+                      echo "WF_CLONE=$WF_CLONE"
+                    ) >>"$GITHUB_OUTPUT"
+                    nl -ba -- "$GITHUB_OUTPUT"
+                    eval "$WF_CLONE"
+
+                WF_SED: |
+                    s~^ *uses: *\x27~\a~
+                    /^\a/{
+                      s~\a([A-Za-z0-9_.-]+)/~WF_USER=\1\n\a~
+                      s~\a([A-Za-z0-9_.-]+)/~WF_REPO=\1\n\a~
+                      s~@([A-Za-z0-9_.-]+)\x27$~\a\nWF_REF=\1~
+                      s~\a([A-Za-z0-9._/-]+)\a~WF_IMPL=\1~
+                      /\a/!p
+                    }
+
+          - run: './B git_basecfg'
+
+          - run: './B generate_matrix'
+            id: mx
+
+        outputs:
+            WF_CLONE: '${{ steps.findself.outputs.WF_CLONE }}'
+            vari: '${{ steps.mx.outputs.vari }}'
+            conc: '${{ steps.mx.outputs.conc }}'
+
+
+
+    build:
+        needs: prep
+        runs-on: ubuntu-latest
+
+        strategy:
+            fail-fast: false
+            max-parallel: '${{ fromJSON(needs.prep.outputs.conc) }}'
+            matrix:
+                variation: '${{ fromJSON(needs.prep.outputs.vari) }}'
+
+        steps:
+          - name: 'Clone the builder'
+            run: 'sh -c "$WF_CLONE"'
+            env:
+                WF_CLONE: '${{ needs.prep.outputs.WF_CLONE }}'
+
+          - name: 'Clone the job description repo'
+            uses: actions/checkout@v3
+            with:
+                path: job
+
+          - run: './B git_basecfg'
+
+          - run: './B decode_variation'
+            id: v
+            env:
+                VARI: '${{ matrix.variation }}'
+
+          - run: './B clone_lentic_repo'
+
+          - run: './b/verify_license.sh'
+            if: '${{ steps.v.outputs.license }}'
+            env:
+                EXPECTED_LICENSE: '${{ steps.v.outputs.license }}'
+
+          # - run: './B apply_hotfixes'
+
+          - name: 'Set up JDK'
+            if: '${{ steps.v.outputs.java }}'
+            uses: actions/setup-java@v3
+            with:
+                distribution: 'temurin'
+                java-version: '${{ steps.v.outputs.java }}'
+
+          - name: 'Set up gradle'
+            if: '${{ steps.v.outputs.java }}'
+            uses: gradle/gradle-build-action@v2
+            with:
+                generate-job-summary:
+                    '${{ !!steps.v.outputs.gradle_default_summary }}'
+
+          - run: './B gradle'
+            if: '${{ steps.v.outputs.java }}'
+
+          - name: 'Grab the relevant binaries'
+            run: './B grab'
+            if: '${{ steps.v.outputs.artifact }}'
+
+          - name: 'Upload mod file'
+            if: '${{ steps.v.outputs.artifact }}'
+            uses: actions/upload-artifact@v3
+            with:
+                name: '${{ steps.v.outputs.artifact }}'
+                path: b/jar-unpacked
+                if-no-files-found: error
+                retention-days: 1 # Rather, re-upload them as a release.
+
+
+
+
+
+...
