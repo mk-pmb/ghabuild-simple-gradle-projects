@@ -10,6 +10,30 @@ building.
 <!--/#echo -->
 
 
+Motivation
+----------
+
+You want to build a gradle project but…
+
+  * … don't want to install Java or gradle on your dev computer.
+  * … don't want to invest your own RAM, disk space, time.
+  * … want to show a result or an error message in a way that's easy to
+    reproduce for others, independent of your computer's settings.
+
+That's where GitHub Actions can help. Just build it in the cloud!
+
+However, some projects don't make it very easy to start a cloud build
+for your specific branch, or just any branch you want to try.
+
+That's where this project can help. At least in simple cases.
+
+
+
+How to use
+----------
+
+see [docs/README.md](docs/README.md).
+
 
 <!--#toc stop="scan" -->
 
