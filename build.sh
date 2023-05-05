@@ -8,10 +8,14 @@ function build_init () {
   cd -- "$SELFPATH" || return $?
   source -- lib/kisi.sh --lib || return $?
 
+  [ -n "$GITHUB_OUTPUT" ] || local GITHUB_OUTPUT='tmp.github_output.txt'
   exec 6>>"$GITHUB_OUTPUT" || return $?
+  printf 'build_start=%(%F %T)T\n' >&6 || return $?
+
   local -A JOB=()
   [ -d job ] || ln --symbolic --target-directory=. -- ../job || return $?
-  source -- job/job.rc || return $?
+  source -- job/job.rc || return $?$(
+    echo "E: Failed to read job description." >&2)
   # local -p
 
   local TASK="$1"; shift
