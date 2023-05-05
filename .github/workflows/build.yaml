@@ -79,8 +79,9 @@ jobs:
 
         outputs:
             WF_CLONE: '${{ steps.findself.outputs.WF_CLONE }}'
+            conc: '${{ steps.mx.outputs.job_max_concurrency }}'
+            dura: '${{ steps.mx.outputs.job_estimated_build_duration }}'
             vari: '${{ steps.mx.outputs.vari }}'
-            conc: '${{ steps.mx.outputs.conc }}'
 
 
 
@@ -107,14 +108,16 @@ jobs:
 
           - run: './B git_basecfg'
 
+          - run: './B clone_lentic_repo'
+            env:
+                VARI: '${{ matrix.variation }}'
+
           - run: './B decode_variation'
             id: v
             env:
                 VARI: '${{ matrix.variation }}'
 
-          - run: './B clone_lentic_repo'
-
-          - run: './b/verify_license.sh'
+          - run: './B verify_license'
             if: '${{ steps.v.outputs.license }}'
             env:
                 EXPECTED_LICENSE: '${{ steps.v.outputs.license }}'
@@ -122,21 +125,23 @@ jobs:
           # - run: './B apply_hotfixes'
 
           - name: 'Set up JDK'
-            if: '${{ steps.v.outputs.java }}'
+            if: '${{ steps.v.outputs.java_ver }}'
             uses: actions/setup-java@v3
             with:
                 distribution: 'temurin'
-                java-version: '${{ steps.v.outputs.java }}'
+                java-version: '${{ steps.v.outputs.java_ver }}'
 
           - name: 'Set up gradle'
-            if: '${{ steps.v.outputs.java }}'
+            if: '${{ steps.v.outputs.java_ver }}'
             uses: gradle/gradle-build-action@v2
             with:
                 generate-job-summary:
                     '${{ !!steps.v.outputs.gradle_default_summary }}'
 
-          - run: './B gradle'
-            if: '${{ steps.v.outputs.java }}'
+          - name: 'Build the project — this usually takes ${{
+                needs.prep.outputs.dura }}'
+            run: './B gradle'
+            if: '${{ steps.v.outputs.java_ver }}'
 
           - name: 'Grab the relevant binaries'
             run: './B grab'
