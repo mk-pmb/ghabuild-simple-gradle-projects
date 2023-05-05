@@ -9,9 +9,11 @@ function build_init () {
   source -- lib/eqlines.sh --lib || return $?
   source -- lib/kisi.sh --lib || return $?
 
-  [ -n "$GITHUB_OUTPUT" ] || local GITHUB_OUTPUT='tmp.github_output.txt'
+  [ -n "$GITHUB_OUTPUT" ] || local GITHUB_OUTPUT='tmp.ghout.txt'
+  [ -n "$GITHUB_STEP_SUMMARY" ] || local GITHUB_STEP_SUMMARY='tmp.ghsum.txt'
+  [ "$USER" == runner ] || >"$GITHUB_STEP_SUMMARY" >"$GITHUB_OUTPUT"
   exec 6>>"$GITHUB_OUTPUT" || return $?
-  printf 'build_start=%(%F %T)T\n' >&6 || return $?
+  exec 7>>"$GITHUB_STEP_SUMMARY" || return $?
 
   local -A JOB=(
     [max_concurrency]=64
@@ -64,10 +66,23 @@ function build_generate_matrix () {
   V="tmp.$V"
   V="$( [ -s "$V" ] && grep -Pe '\S' -- "$V" )"
   [ -n "$V" ] || V='""'
+  local N_VARI="${V//[^$'\n']/}"
+  let N_VARI="${#N_VARI}+1"
   V="[ ${V//$'\n'/, } ]"
   echo "vari=$V" >&6 || return $?
 
+  local ETA="${JOB[max_build_duration_sec_per_variation]}"
+  if [ -n "$ETA" ]; then
+    (( ETA = ( ETA * N_VARI ) + $EPOCHSECONDS + 1 ))
+    ETA="$(date --utc --date="@$ETA" +%H:%M) UTC"
+  else
+    ETA='_unknown_'
+  fi
+  echo "eta=$ETA" >&6 || return $?
+
   nl -ba -- "$GITHUB_OUTPUT" || return $?
+  echo "Building $N_VARI variations." \
+    "This will probably finish before $ETA." >&7
 }
 
 

@@ -80,13 +80,29 @@ jobs:
         outputs:
             WF_CLONE: '${{ steps.findself.outputs.WF_CLONE }}'
             conc: '${{ steps.mx.outputs.job_max_concurrency }}'
-            dura: '${{ steps.mx.outputs.job_estimated_build_duration }}'
+            dura: '${{ steps.mx.outputs.job_estimated_build_duration_per_variation }}'
+            eta: '${{ steps.mx.outputs.eta }}'
             vari: '${{ steps.mx.outputs.vari }}'
 
 
+    eta_preview:
+        needs: 'prep'
+        name: 'ETA ≤'
+        runs-on: ubuntu-latest
+        strategy:
+            matrix:
+                hint:
+                  - '${{ needs.prep.outputs.eta }}'
+        steps:
+          - name: 'This is a dummy job just for previewing the estimated ETA.'
+            run: 'true'
+            if: False
+
 
     build:
-        needs: prep
+        needs:
+          - 'prep'
+          - 'eta_preview'
         runs-on: ubuntu-latest
 
         strategy:
