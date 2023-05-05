@@ -14,12 +14,22 @@ function vdo () {
 
 
 function fmt_markdown_details_file () {
-  echo "<details><summary>$1</summary>"
-  shift
+  local TITLE="$1"; shift
+  local FMT="$1"; shift
+  local FILE="$1"; shift
+  local OPT="$1"; shift
+  [ -n "$OPT" ] || case "$FILE" in
+    *.txt ) OPT='--count-lines';;
+  esac
+  case "$OPT" in
+    '' ) ;;
+    --count-lines ) TITLE+=" ($(wc --lines <"$FILE") lines)";;
+    * ) echo "E: $FUNCNAME: Unsupported option: $OPT"; return 3;;
+  esac
+  echo "<details><summary>$TITLE</summary>"
   echo
-  echo '```'"$1"
-  shift
-  sed -re '/^\x60{3}/s~^.~\&#96;~' -- "$@"
+  echo '```'"$FMT"
+  sed -re '/^\x60{3}/s~^.~\&#96;~' -- "${FILE:-/dev/stdin}"
   echo '```'
   echo
   echo "</details>"
@@ -59,6 +69,9 @@ function read_build_matrix_entry () {
     '
   eval "MX=( $(sed -rf <(echo "$SED") -- tmp.matrix_entry.json) )"
 }
+
+
+function find_vsort () { find "$@" > >(sort --version-sort); }
 
 
 

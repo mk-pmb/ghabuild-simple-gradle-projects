@@ -114,6 +114,7 @@ function build_gen_artifact_name () {
   ARTI+="$(version_triad_if_set "${VARI[grpr_minecraft_version]}" -mc
     )" || return $?
 
+  ARTI+="-$(date --utc +'%y%m%d-%H%M%S')"
   ARTI="${ARTI,,}.jar"
   echo "$ARTI"
 }
@@ -151,6 +152,40 @@ function build_gradle () {
     >>"$GITHUB_STEP_SUMMARY"
 
   return "$GR_RV"
+}
+
+
+function build_grab () {
+  local NLF='tmp.new_lentic_files.txt'
+  find_vsort lentic/ -mindepth 1 -type d -name '.*' -prune , \
+    -newer tmp.variation.dict -print | cut -d / -sf 2- >"$NLF" || return $?
+  ghstep_dump_file 'Newly created lentic files' text "$NLF" || return $?
+
+  local JAR_DIR='lentic/build/libs'
+  local JAR_LIST='tmp.jars.txt'
+  find_vsort "$JAR_DIR" -maxdepth 1 -type f -name '*.jar' \
+    -printf '%f\n' >"$JAR_LIST" || return $?
+  ghstep_dump_file 'JARs found before filtering' text "$JAR_LIST" || return $?
+  local ITEM=
+  for ITEM in job/jar_filter{/[0-9]*,}.{sed,sh}; do
+    [ -f "$ITEM" ] || continue
+    if [ -x "$ITEM" ]; then
+      vdo "$ITEM" "$JAR_LIST" || return $?
+      continue
+    fi
+    case "$ITEM" in
+      *.sed ) vdo sed -rf "$ITEM" -i -- "$JAR_LIST" || return $?;;
+      *.sh ) vdo bash -- "$ITEM" "$JAR_LIST" || return $?;;
+      * ) echo "E: unsupported filename extension: $ITEM" >&2; return 3;;
+    esac
+  done
+
+  local JAR_DEST='jar-unpacked'
+  mkdir --parents "$JAR_DEST"
+  unzip -d "$JAR_DEST" -- "$JAR_DIR/$(grep -Pe '^\w' -- "$JAR_LIST"
+    )" || return $?
+
+  vdo find_vsort "$JAR_DEST" || return $?
 }
 
 
