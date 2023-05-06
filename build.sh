@@ -270,6 +270,7 @@ function build_grab () {
   local JAR_LIST='tmp.jars.txt'
   find_vsort "$JAR_DIR" -maxdepth 1 -type f -name '*.jar' \
     -printf '%f\n' >"$JAR_LIST" || return $?
+  vdo base64 -- "$JAR_LIST"
   ghstep_dump_file 'JARs found before filtering' text "$JAR_LIST" || return $?
   local ITEM= OPT=
   for ITEM in job/jar_filter{/[0-9]*,}.{sed,sh}; do
@@ -296,7 +297,10 @@ function build_grab () {
       return 4;;
   esac
   unzip -d "$JAR_DEST" -- "$ITEM" || return $?
-  vdo find_vsort "$JAR_DEST" || return $?
+
+  ITEM='tmp.files_in_jar.txt'
+  VDO_TEE="$ITEM" vdo find_vsort "$JAR_DEST" || return $?
+  ghstep_dump_file 'Files in the JAR' text "$ITEM" || return $?
 }
 
 
