@@ -79,9 +79,18 @@ function build_generate_matrix () {
   unset JOB[jar_add_lentic_files]
   unset JOB[lentic_license_sha1s]
 
+  local K= V=
+  for K in "${!JOB[@]}"; do
+    case "$K" in
+      job_* )
+        echo "E: Job option '$K' seems to have an accidential prefix." >&2
+        return 3;;
+    esac
+  done
+
   EQLN_ADD_KEY_PREFIX='job_' eqlines_dump_dict JOB >&6 || return $?
 
-  local V='variations.ndjson'
+  V='variations.ndjson'
   [ ! -s "job/$V" ] || cat -- "job/$V" >"tmp.$V" || return $?
   V="tmp.$V"
   V="$( [ -s "$V" ] && grep -Pe '\S' -- "$V" )"
