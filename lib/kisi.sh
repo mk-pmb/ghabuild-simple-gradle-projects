@@ -72,7 +72,18 @@ function read_build_matrix_entry () {
 
 
 function find_vsort () { find "$@" > >(sort --version-sort); }
+function unindent_unblank () { sed -nre 's~^\s*(\S)~\1~p' -- "$@"; }
 
+
+function nice_ls () {
+  local LS_OPT=(
+    --file-type
+    --format=long
+    --human-readable
+    --group-directories-first
+    )
+  ls "${LS_OPT[@]}" "$@" || return $?
+}
 
 
 
