@@ -32,7 +32,8 @@ function build_init () {
   local RV=$?
   echo :
   echo "E: Build task $TASK failed, rv=$RV"
-  yes : 2>/dev/null | head --lines=15
+  yes : 2>/dev/null > >(head --lines=15)
+  wait # for head to finish printing
   return "$RV"
 }
 
@@ -245,11 +246,15 @@ function build_grab () {
   find_vsort "$JAR_DIR" -maxdepth 1 -type f -name '*.jar' \
     -printf '%f\n' >"$JAR_LIST" || return $?
   ghstep_dump_file 'JARs found before filtering' text "$JAR_LIST" || return $?
-  local ITEM=
+  local ITEM= OPT=
   for ITEM in job/jar_filter{/[0-9]*,}.{sed,sh}; do
     [ -f "$ITEM" ] || continue
     if [ -x "$ITEM" ]; then
-      vdo "$ITEM" "$JAR_LIST" || return $?
+      case "$ITEM" in
+        *.sed ) OPT='-i';;
+        * ) OPT=;;
+      esac
+      vdo "$ITEM" $OPT "$JAR_LIST" || return $?
       continue
     fi
     case "$ITEM" in
@@ -258,8 +263,14 @@ function build_grab () {
       * ) echo "E: unsupported filename extension: $ITEM" >&2; return 3;;
     esac
   done
-  unzip -d "$JAR_DEST" -- "$JAR_DIR/$(grep -Pe '^\w' -- "$JAR_LIST"
-    )" || return $?
+  ITEM="$JAR_DIR/$(grep -Pe '^\w' -- "$JAR_LIST")"
+  case "$ITEM" in
+    '' ) echo 'E: No JAR remaining after filtering.' >&2; return 4;;
+    *$'\n'* )
+      echo "E: Too many JARs remaining after filtering: ${ITEM//$'\n'/¶ }" >&2
+      return 4;;
+  esac
+  unzip -d "$JAR_DEST" -- "$ITEM" || return $?
   vdo find_vsort "$JAR_DEST" || return $?
 }
 
