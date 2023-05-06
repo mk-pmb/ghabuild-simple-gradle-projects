@@ -56,7 +56,6 @@ function build_clone_lentic_repo () {
 }
 
 
-
 function build_verify_license () {
   local LIC="${JOB[lentic_license_sha1s]}"
   [[ "$LIC" == *[0-9a-fA-F]* ]] || return 3$(
@@ -120,6 +119,15 @@ function build_decode_variation () {
   echo "$REBASH" >tmp.variation.dict || return $?
   echo "bash_dict_pairs=$REBASH" >&6 || return $?
   nl -ba -- "$GITHUB_OUTPUT" || return $?
+}
+
+
+function build_apply_hotfixes () {
+  local ITEM=
+  for ITEM in job/hotfix.sh; do
+    [ -x "$ITEM" ] || continue
+    vdo ./"$ITEM" || return $?
+  done
 }
 
 

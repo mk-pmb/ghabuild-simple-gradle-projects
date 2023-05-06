@@ -135,7 +135,7 @@ jobs:
             env:
                 VARI: '${{ matrix.variation }}'
 
-          # - run: './B apply_hotfixes'
+          - run: './B apply_hotfixes'
 
           - name: 'Set up JDK'
             if: '${{ steps.v.outputs.java_ver }}'
