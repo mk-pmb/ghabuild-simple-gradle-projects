@@ -29,7 +29,7 @@ function build_init () {
   local RV=$?
   echo :
   echo "E: Build task $TASK failed, rv=$RV"
-  yes : | head --lines=15
+  yes : 2>/dev/null | head --lines=15
   return "$RV"
 }
 
@@ -124,11 +124,25 @@ function build_decode_variation () {
 
 
 function build_detect_root_project_name () {
-  local PN='s~"~~g;s~^rootProject\.name\s*=\s*~~p'
-  PN="$(sed -nre "$PN" -- lentic/settings.gradle{,.*,.kts} 2>/dev/null)"
-  [ -n "$PN" ] || return 4$(echo "E: $FUNCNAME: Found nothing" >&2)
-  [[ "$PN" == *$'\n'* ]] && return 4$(echo "E: $FUNCNAME: Found multiple" >&2)
+  local PN="$(build_detect_root_project_name__core)"
+  case "$PN" in
+    '' ) echo "E: $FUNCNAME: Found nothing" >&2; return 4;;
+    *$'\n'* )
+      echo "E: $FUNCNAME: Found too many names: ${PN//$'\n'/¶ }" >&2
+      return 4;;
+  esac
   echo "$PN"
+}
+
+
+function build_detect_root_project_name__core () {
+  sed -nrf <(echo '
+    s~"~~g;s~^rootProject\.name\s*=\s*~~p
+    ') -- lentic/settings.gradle{,.*,.kts} 2>/dev/null
+
+  sed -nrf <(echo '
+    s~"~~g;s~^mod_id\s*=\s*~~p
+    ') -- lentic/gradle.properties 2>/dev/null
 }
 
 
