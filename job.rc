@@ -1,0 +1,9 @@
+# -*- coding: utf-8, tab-width: 2 -*-
+
+JOB[estimated_build_duration_per_variation]='5–7 minutes'
+JOB[max_build_duration_sec_per_variation]=$(( 7 * 60 ))
+JOB[lentic_url]='https://github.com/ThexXTURBOXx/mouse-wheelie/'
+JOB[lentic_ref]='1.19'
+JOB[lentic_license_sha1s]='7df059597099bb7dcf25d2a9aedfaf4465f72d8d  LICENSE'
+JOB[jar_add_lentic_files]='LICENSE -> LICENSE.txt'
+JOB[upload_lentic_snapshot]='lentic.snap'
