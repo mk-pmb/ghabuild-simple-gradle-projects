@@ -310,8 +310,15 @@ function build_grab () {
       echo "E: Too many JARs remaining after filtering: ${ITEM//$'\n'/¶ }" >&2
       return 4;;
   esac
-  unzip -d "$JAR_UNP" -- "$ITEM" || return $?
+  echo "orig_jar_path=$ITEM" >&6
 
+  local RLS_DIR='release'
+  mkdir --parents -- "$RLS_DIR" || return $?
+  local RLS_JAR="$RLS_DIR/${VARI[artifact]}"
+  mv --verbose --no-target-directory -- "$ITEM" "$RLS_JAR" || return $?
+  vdo nice_ls -- "$RLS_DIR"/ || return $?
+
+  unzip -d "$JAR_UNP" -- "$RLS_JAR" || return $?
   ITEM='tmp.files_in_jar.txt'
   VDO_TEE="$ITEM" vdo find_vsort "$JAR_UNP" || return $?
   ghstep_dump_file 'Files in the JAR' text "$ITEM" || return $?
