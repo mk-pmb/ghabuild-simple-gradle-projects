@@ -143,11 +143,36 @@ function build_decode_variation () {
 
 
 function build_apply_hotfixes () {
-  local ITEM=
-  for ITEM in job/hotfix.sh; do
-    [ -x "$ITEM" ] || continue
-    vdo ./"$ITEM" || return $?
+  local FIX=
+  for FIX in job/hotfix.sh; do
+    [ -x "$FIX" ] || continue
+    vdo ./"$FIX" || return $?
   done
+
+  local LIST=()
+  readarray -t LIST < <(find job/hotfixes/ -type f -name '*.fix.sed')
+  local ORIG=
+  for FIX in "${LIST[@]}"; do
+    ORIG="${FIX%.fix.*}"
+    ORIG="lentic/${ORIG#*/*/}"
+    if [ -x "$FIX" ]; then
+      vdo ./"$FIX" -i -- "$ORIG" || return $?
+      continue
+    fi
+    vdo sed -rf "$FIX" -i -- "$ORIG" || return $?
+  done
+
+  local MODIF="$(git status --short)"
+  [ -n "$MODIF" ] || return 0
+  ghstep_dump_file 'Hotfixed files' text <<<"$MODIF" || return $?
+
+  cd -- lentic || return $?
+  git add -A . || return $?
+  git commit -m 'Apply hotfixes' || return $?
+  cd -- "$SELFPATH" || return $?
+  GIT_DIR=lentic/ git format-patch --irreversible-delete --stdout \
+    'HEAD~1..HEAD' | ghstep_dump_file 'Hotfix patch' diff || return $?
+  ghstep_dump_file 'Hotfix' text <<<"$MODIF" || return $?
 }
 
 
