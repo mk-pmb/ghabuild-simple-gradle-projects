@@ -128,15 +128,12 @@ jobs:
             env:
                 VARI: '${{ matrix.variation }}'
 
+          - run: './B verify_license'
+
           - run: './B decode_variation'
             id: v
             env:
                 VARI: '${{ matrix.variation }}'
-
-          - run: './B verify_license'
-            if: '${{ steps.v.outputs.license }}'
-            env:
-                EXPECTED_LICENSE: '${{ steps.v.outputs.license }}'
 
           # - run: './B apply_hotfixes'
 

@@ -1,5 +1,4 @@
 #!/bin/bash # <- just a syntax hint for GitHub.
-# -*- coding: utf-8, tab-width: 2 -*-
 
 
 JOB[estimated_build_duration_per_variation]='a few minutes'
@@ -23,3 +22,46 @@ JOB[lentic_ref]='xx_BRANCH_NAME_xx'
 # suitable (work) _flow_.
 
 
+JOB[lentic_license_sha1s]='
+  f1455a3d08422b1ca7d5e96b1b942c03330f26e6  LICENSE.LGPL3.txt
+  '
+# SHA-1 checksums of the license files you expect. This is to save you from
+# accidentially infringing if the upstream project decides to change their
+# license. May be either the filename of a text file with the checksums,
+# or a newline character followed by what would be the file's text.
+# You may omit the newline characters if there's only one line.
+# The example checksum is LGPL v3 as downloaded from
+# https://www.gnu.org/licenses/lgpl+gpl-3.0.txt at 2023-05-06.
+
+
+JOB[jar_add_lentic_files]='
+  CONTRIBUTORS.md
+  LICENSE.MIT.txt -> LICENSE.txt
+  README.md
+  '
+# Optional. Copy extra files from the lentic repo into the JAR.
+
+
+JOB[jar_add_job_files]='
+  '
+# Optional. Copy extra files from the job description branch into the JAR.
+# Same syntax as `jar_add_lentic_files`.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# -*- coding: utf-8, tab-width: 2 -*-

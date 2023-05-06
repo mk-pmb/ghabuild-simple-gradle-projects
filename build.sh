@@ -17,6 +17,7 @@ function build_init () {
 
   local -A JOB=(
     [max_concurrency]=64
+    [grab_ls_before_jar]='. job/ lentic/'
     )
   [ -d job ] || ln --symbolic --target-directory=. -- ../job || return $?
   source -- job/job.rc || return $?$(
@@ -52,13 +53,29 @@ function build_clone_lentic_repo () {
 
   chmod a+x -- lentic/gradlew || return $?
   # ^-- Some repos don't have +x. Maybe their maintainers use Windows.
+}
 
-  vdo ls -l -- lentic/
+
+
+function build_verify_license () {
+  local LIC="${JOB[lentic_license_sha1s]}"
+  [[ "$LIC" == *[0-9a-fA-F]* ]] || return 3$(
+    echo 'E: No configured for license check.' \
+      'Skipping this step is not currently supported.' >&2)
+  local TF='tmp.license_files.sha'
+  <<<"$LIC" unindent_unblank >"$TF" || return $?
+  nl -ba -- "$TF"
+  cd -- lentic || return $?
+  vdo sha1sum --check ../"$TF" || return $?
 }
 
 
 function build_generate_matrix () {
-  # build_clone_lentic_repo || return $?
+  # Drop settings that are allowed to contain newline characters:
+  unset JOB[jar_add_job_files]
+  unset JOB[jar_add_lentic_files]
+  unset JOB[lentic_license_sha1s]
+
   EQLN_ADD_KEY_PREFIX='job_' eqlines_dump_dict JOB >&6 || return $?
 
   local V='variations.ndjson'
@@ -176,6 +193,12 @@ function build_grab () {
     -newer tmp.variation.dict -print | cut -d / -sf 2- >"$NLF" || return $?
   ghstep_dump_file 'Newly created lentic files' text "$NLF" || return $?
 
+  local JAR_DEST='jar-unpacked'
+  mkdir --parents "$JAR_DEST"
+  vdo nice_ls -- ${JOB[grab_ls_before_jar]} || true
+  vdo build_jar_add_extra_files lentic || return $?
+  vdo build_jar_add_extra_files job || return $?
+
   local JAR_DIR='lentic/build/libs'
   local JAR_LIST='tmp.jars.txt'
   find_vsort "$JAR_DIR" -maxdepth 1 -type f -name '*.jar' \
@@ -194,13 +217,24 @@ function build_grab () {
       * ) echo "E: unsupported filename extension: $ITEM" >&2; return 3;;
     esac
   done
-
-  local JAR_DEST='jar-unpacked'
-  mkdir --parents "$JAR_DEST"
   unzip -d "$JAR_DEST" -- "$JAR_DIR/$(grep -Pe '^\w' -- "$JAR_LIST"
     )" || return $?
-
   vdo find_vsort "$JAR_DEST" || return $?
+}
+
+
+function build_jar_add_extra_files () {
+  local SRC_DIR="$1"
+  local LIST=()
+  readarray -t LIST < <(unindent_unblank <<<"${JOB[jar_add_${SRC_DIR}_files]}
+      " | sed -re 's!\s+(->)\s+! \1 !g')
+  local SRC_FILE= DEST_FILE=
+  for SRC_FILE in "${LIST[@]}"; do
+    DEST_FILE="$JAR_DEST/${SRC_FILE##* -> }"
+    SRC_FILE="$SRC_DIR/${SRC_FILE% -> *}"
+    mkdir --parents -- "$(dirname -- "$DEST_FILE")"
+    cp --verbose --no-target-directory -- "$SRC_FILE" "$DEST_FILE" || return $?
+  done
 }
 
 
