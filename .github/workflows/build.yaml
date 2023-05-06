@@ -169,6 +169,17 @@ jobs:
                 if-no-files-found: error
                 retention-days: 1 # Rather, re-upload them as a release.
 
+          - name: 'Upload debug snapshot of ALL the lentic files'
+            if: >
+                ${{ steps.v.outputs.job_upload_lentic_snapshot
+                && startsWith(github.ref, 'refs/heads/debug-') }}
+            uses: actions/upload-artifact@v3
+            with:
+                name: '${{ steps.v.outputs.job_upload_lentic_snapshot }}'
+                path: b/lentic
+                if-no-files-found: error
+                retention-days: 1
+
 
 
 
