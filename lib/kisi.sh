@@ -23,7 +23,13 @@ function fmt_markdown_details_file () {
   esac
   case "$OPT" in
     '' ) ;;
-    --count-lines ) TITLE+=" ($(wc --lines <"$FILE") lines)";;
+    --count-lines )
+      sleep 1s # Wait for GitHub's file system cache to settle
+      local N_LN="$(wc --lines -- "$FILE" | grep -oPe '^\d+')"
+      local SIZE="$(
+        du --apparent-size --human-readable -- "$FILE" | grep -oPe '^\w+')"
+      TITLE+=" ($SIZE bytes, $N_LN lines)"
+      ;;
     * ) echo "E: $FUNCNAME: Unsupported option: $OPT"; return 3;;
   esac
   echo "<details><summary>$TITLE</summary>"
@@ -73,6 +79,19 @@ function read_build_matrix_entry () {
 
 function find_vsort () { find "$@" > >(sort --version-sort); }
 function unindent_unblank () { sed -nre 's~^\s*(\S)~\1~p' -- "$@"; }
+
+
+function dump_bash_dict_pairs () {
+  local PAIRS="$(declare -p | grep -Pe '^declare -\w*A\w* '"$1"'=\(')"
+  # ^-- The \w* are because GHA's bash @2023-05-06 had -Ax,
+  #     albeit the bash on my Ubuntu only gave -A.
+  [ -n "$PAIRS" ] || return 4$(echo "E: $FUNCNAME: no such dict: $1" >&2)
+  PAIRS="${PAIRS#*\(}"
+  PAIRS="${PAIRS%\)*}"
+  PAIRS="${PAIRS# }"
+  PAIRS="${PAIRS% }"
+  [ -z "$PAIRS" ] || echo "$PAIRS"
+}
 
 
 function nice_ls () {
