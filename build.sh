@@ -15,9 +15,12 @@ function build_init () {
   exec 6>>"$GITHUB_OUTPUT" || return $?
   exec 7>>"$GITHUB_STEP_SUMMARY" || return $?
 
+  local -A MEM=()
   local -A JOB=(
     [max_concurrency]=64
     [grab_ls_before_jar]='. job/ lentic/'
+    [github_jobmgmt_dura_sec]=30  # for setting up the job, cleanup tasks etc.
+    [total_dura_tolerance_sec]=30 # tolerance for e.g. rounding errors.
     )
   [ -d job ] || ln --symbolic --target-directory=. -- ../job || return $?
   source -- job/job.rc || return $?$(
@@ -86,19 +89,35 @@ function build_generate_matrix () {
   let N_VARI="${#N_VARI}+1"
   V="[ ${V//$'\n'/, } ]"
   echo "vari=$V" >&6 || return $?
-
-  local ETA="${JOB[max_build_duration_sec_per_variation]}"
-  if [ -n "$ETA" ]; then
-    (( ETA = ( ETA * N_VARI ) + $EPOCHSECONDS + 1 ))
-    ETA="$(date --utc --date="@$ETA" +%H:%M) UTC"
-  else
-    ETA='_unknown_'
-  fi
-  echo "eta=$ETA" >&6 || return $?
+  build_predict_eta >&6 || return $?
 
   nl -ba -- "$GITHUB_OUTPUT" || return $?
   echo "Building $N_VARI variations." \
-    "This will probably finish before $ETA." >&7
+    "This will probably finish before ${MEM[eta_hr]}." >&7
+}
+
+
+function build_predict_eta () {
+  [ "${N_VARI:-0}" -ge 1 ] || return 3$(
+    echo "E: $FUNCNAME: Bad N_VARI='$N_VARI'" >&2)
+
+  local PER_VARI="${JOB[max_build_duration_sec_per_variation]}"
+  echo "D: $FUNCNAME: original PER_VARI='$PER_VARI'" >&2
+  if [ -z "$PER_VARI" ]; then
+    echo 'eta=_unknown_'
+    return 0
+  fi
+
+  let "PER_VARI+=${JOB[github_jobmgmt_dura_sec]}"
+  local ETA="$EPOCHSECONDS"
+  let "ETA+=($PER_VARI * $N_VARI)"
+  let "ETA+=${JOB[total_dura_tolerance_sec]}"
+
+  local HR="$(date --utc --date="@${ETA:-0}" +'%H:%M UTC, %F')"
+  MEM[eta_hr]="$HR"
+  echo "D: $FUNCNAME: PER_VARI='$PER_VARI' ETA='$ERA' HR='$HR'" >&2
+  [[ "$HR" != *' 1970-'* ]] || return 4$(echo 'E: ETA calculation failed.' >&2)
+  echo "eta=$HR"
 }
 
 
