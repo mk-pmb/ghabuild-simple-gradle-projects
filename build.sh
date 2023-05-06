@@ -269,8 +269,8 @@ function build_grab () {
     -newer tmp.variation.dict -print | cut -d / -sf 2- >"$NLF" || return $?
   ghstep_dump_file 'Newly created lentic files' text "$NLF" || return $?
 
-  local JAR_DEST='jar-unpacked'
-  mkdir --parents "$JAR_DEST"
+  local JAR_UNP='jar-unpacked'
+  mkdir --parents -- "$JAR_UNP"
   vdo nice_ls -- ${JOB[grab_ls_before_jar]} || true
   vdo build_jar_add_extra_files lentic || return $?
   vdo build_jar_add_extra_files job || return $?
@@ -305,10 +305,10 @@ function build_grab () {
       echo "E: Too many JARs remaining after filtering: ${ITEM//$'\n'/¶ }" >&2
       return 4;;
   esac
-  unzip -d "$JAR_DEST" -- "$ITEM" || return $?
+  unzip -d "$JAR_UNP" -- "$ITEM" || return $?
 
   ITEM='tmp.files_in_jar.txt'
-  VDO_TEE="$ITEM" vdo find_vsort "$JAR_DEST" || return $?
+  VDO_TEE="$ITEM" vdo find_vsort "$JAR_UNP" || return $?
   ghstep_dump_file 'Files in the JAR' text "$ITEM" || return $?
 }
 
@@ -320,7 +320,7 @@ function build_jar_add_extra_files () {
       " | sed -re 's!\s+(->)\s+! \1 !g')
   local SRC_FILE= DEST_FILE=
   for SRC_FILE in "${LIST[@]}"; do
-    DEST_FILE="$JAR_DEST/${SRC_FILE##* -> }"
+    DEST_FILE="$JAR_UNP/${SRC_FILE##* -> }"
     SRC_FILE="$SRC_DIR/${SRC_FILE% -> *}"
     mkdir --parents -- "$(dirname -- "$DEST_FILE")"
     cp --verbose --no-target-directory -- "$SRC_FILE" "$DEST_FILE" || return $?
