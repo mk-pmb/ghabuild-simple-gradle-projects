@@ -25,6 +25,10 @@ function build_init () {
   [ -d job ] || ln --symbolic --target-directory=. -- ../job || return $?
   source -- job/job.rc || return $?$(
     echo "E: Failed to read job description." >&2)
+
+  local -A VARI=()
+  [ ! -f tmp.variation.dict ] || eval "VARI=(
+    $(cat -- tmp.variation.dict) )" || return $?
   # local -p
 
   local TASK="$1"; shift
@@ -134,17 +138,15 @@ function build_predict_eta () {
 function build_decode_variation () {
   EQLN_ADD_KEY_PREFIX='job_' eqlines_dump_dict JOB >&6 || return $?
 
-  local -A VARI=( [variation]="$VARI" )
+  VARI=( [variation]="$VARI" )
   VARI[java_ver]="${JOB[java_ver]:-17}"
   eqlines_read_dict VARI grpr_ <lentic/gradle.properties || return $?
   VARI[root_project_name]="$(build_detect_root_project_name)" || return $?
   VARI[artifact]="$(build_gen_artifact_name)" || return $?
 
   eqlines_dump_dict VARI >&6 || return $?
-  local REBASH="$(local -p)"
-  REBASH="${REBASH#*\(}"
-  REBASH="${REBASH%\)*}"
-  REBASH="${REBASH% }"
+  local REBASH="$(dump_bash_dict_pairs VARI)"
+  [ -n "$REBASH" ] || return 4$(echo 'E: VARI dict dump is empty!' >&2)
   echo "$REBASH" >tmp.variation.dict || return $?
   echo "bash_dict_pairs=$REBASH" >&6 || return $?
   nl -ba -- "$GITHUB_OUTPUT" || return $?
@@ -243,6 +245,7 @@ function version_triad_if_set () {
 
 
 function build_gradle () {
+  [ -n "${VARI[artifact]}" ] || return 4$(echo 'E: Empty artifact name!' >&2)
   cd -- lentic || return $?
   local GW_OPT=(
     --stacktrace
@@ -264,6 +267,8 @@ function build_gradle () {
 
 
 function build_grab () {
+  [ -n "${VARI[artifact]}" ] || return 4$(echo 'E: Empty artifact name!' >&2)
+
   local NLF='tmp.new_lentic_files.txt'
   find_vsort lentic/ -mindepth 1 -type d -name '.*' -prune , \
     -newer tmp.variation.dict -print | cut -d / -sf 2- >"$NLF" || return $?
