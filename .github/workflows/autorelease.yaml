@@ -1,0 +1,63 @@
+%YAML 1.1
+# ^-- ATTN: [2019-12-31] If you use a later version, Github will fail
+#     with a bogus error message "You have an error in your yaml syntax".
+# -*- coding: UTF-8, tab-width: 4 -*-
+---
+
+on:
+    workflow_call:
+
+jobs:
+    autorelease:
+        if: "${{ startsWith(github.ref, 'refs/heads/build-') }}"
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+        steps:
+
+          - uses: actions/download-artifact@v3
+            name: 'Download ALL the artifacts!'
+            with:
+                path: artifacts
+
+          - name: 'Repack JARs'
+            id: repack
+            run: 'bash -c "$SCRIPT"'
+            env:
+                SCRIPT: |
+                    set -e
+                    mkdir release
+                    for ITEM in artifacts/*.{jar,zip}/; do
+                      [ -d "$ITEM" ] || continue
+                      ITEM="${ITEM%/}"
+                      pushd -- "$ITEM"
+                      zip -r9 ../../release/"${ITEM#*/}" -- .
+                      popd >/dev/null
+                      echo :::
+                    done
+                    echo tag="rolling/${GITHUB_REF#*-}" >>"$GITHUB_OUTPUT"
+
+          - name: 'Publish JAR file into release'
+            id: rls
+            uses: ncipollo/release-action@v1
+            with:
+                allowUpdates: True
+                artifactErrorsFailBuild: True
+                artifacts: 'release/*'
+                body: ''
+                makeLatest: False
+                prerelease: True
+                removeArtifacts: True # Remove old files from release.
+                commit: '${{ github.sha }}'
+                tag: '${{ steps.repack.outputs.tag }}'
+
+          - name: 'Report the release URL'
+            run: 'echo "$MSG" >>"$GITHUB_STEP_SUMMARY"'
+            env:
+                MSG: >
+                    [Release page for `${{ steps.repack.outputs.tag
+                    }}`](${{ steps.rls.outputs.html_url }})
+
+
+
+...

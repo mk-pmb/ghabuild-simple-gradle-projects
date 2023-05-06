@@ -12,4 +12,11 @@ jobs:
     ignite:
         uses: 'mk-pmb/ghabuild-simple-gradle-projects/.github/workflows/build.yaml@master'
 
+    # The next part is optional, for automatically uploading a release.
+    publish:
+        needs: ignite
+        permissions:
+            contents: write
+        uses: 'mk-pmb/ghabuild-simple-gradle-projects/.github/workflows/autorelease.yaml@master'
+
 ...

@@ -105,6 +105,9 @@ jobs:
           - 'eta_preview'
         runs-on: ubuntu-latest
 
+        outputs:
+            artifact_name: '${{ steps.v.outputs.artifact }}'
+
         strategy:
             fail-fast: false
             max-parallel: '${{ fromJSON(needs.prep.outputs.conc) }}'
@@ -126,14 +129,14 @@ jobs:
 
           - run: './B clone_lentic_repo'
             env:
-                VARI: '${{ matrix.variation }}'
+                VARI_JSON: '${{ toJSON(matrix.variation) }}'
 
           - run: './B verify_license'
 
           - run: './B decode_variation'
             id: v
             env:
-                VARI: '${{ matrix.variation }}'
+                VARI_JSON: '${{ toJSON(matrix.variation) }}'
 
           - run: './B apply_hotfixes'
 
@@ -160,7 +163,7 @@ jobs:
             run: './B grab'
             if: '${{ steps.v.outputs.artifact }}'
 
-          - name: 'Upload JAR file'
+          - name: 'Upload JAR file as artifact'
             if: '${{ steps.v.outputs.artifact }}'
             uses: actions/upload-artifact@v3
             with:
@@ -170,17 +173,14 @@ jobs:
                 retention-days: 1 # Rather, re-upload them as a release.
 
           - name: 'Upload debug snapshot of ALL the lentic files'
-            if: >
-                ${{ steps.v.outputs.job_upload_lentic_snapshot
-                && startsWith(github.ref, 'refs/heads/debug-') }}
+            if: "${{ steps.v.outputs.job_upload_lentic_snapshot
+                    && startsWith(github.ref, 'refs/heads/debug-') }}"
             uses: actions/upload-artifact@v3
             with:
                 name: '${{ steps.v.outputs.job_upload_lentic_snapshot }}'
                 path: b/lentic
                 if-no-files-found: error
                 retention-days: 1
-
-
 
 
 
