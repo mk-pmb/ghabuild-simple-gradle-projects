@@ -163,7 +163,7 @@ jobs:
             run: './B grab'
             if: '${{ steps.v.outputs.artifact }}'
 
-          - name: 'Upload mod file'
+          - name: 'Upload JAR file'
             if: '${{ steps.v.outputs.artifact }}'
             uses: actions/upload-artifact@v3
             with:
