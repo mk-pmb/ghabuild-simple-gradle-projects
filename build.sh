@@ -158,16 +158,12 @@ function build_decode_variation () {
 
 
 function build_apply_hotfixes () {
-  local FIX=
-  for FIX in job/hotfix.sh; do
-    [ -x "$FIX" ] || continue
-    vdo ./"$FIX" || return $?
-  done
+  local SCAN=()
+  build_apply_hotfixes__runparts early || return $?
 
-  local LIST=()
-  readarray -t LIST < <(find job/hotfixes/ -type f -name '*.fix.sed')
-  local ORIG=
-  for FIX in "${LIST[@]}"; do
+  build_apply_hotfixes__scan fix || return $?
+  local ORIG= FIX=
+  for FIX in "${SCAN[@]}"; do
     ORIG="${FIX%.fix.*}"
     ORIG="lentic/${ORIG#*/*/}"
     if [ -x "$FIX" ]; then
@@ -176,6 +172,8 @@ function build_apply_hotfixes () {
     fi
     vdo sed -rf "$FIX" -i -- "$ORIG" || return $?
   done
+
+  build_apply_hotfixes__runparts late || return $?
 
   local MODIF="$(git status --short)"
   [ -n "$MODIF" ] || return 0
@@ -188,6 +186,29 @@ function build_apply_hotfixes () {
   GIT_DIR=lentic/ git format-patch --irreversible-delete --stdout \
     'HEAD~1..HEAD' | ghstep_dump_file 'Hotfix patch' diff || return $?
   ghstep_dump_file 'Hotfix' text <<<"$MODIF" || return $?
+}
+
+
+function build_apply_hotfixes__scan () {
+  SCAN=(
+    find
+    job/hotfixes/
+    -type f
+    '(' -false
+      -o -name "*.$1.sed"
+      -o -name "*.$1.sh"
+      ')'
+    -printf '%f\t%p\n'
+    )
+  readarray -t SCAN < <("${SCAN[@]}" | sort --version-sort | cut -sf 2-)
+}
+
+
+function build_apply_hotfixes__runparts () {
+  local FIX=
+  for FIX in "${SCAN[@]}"; do
+    [ ! -x "$FIX" ] || vdo ./"$FIX" || return $?
+  done
 }
 
 
