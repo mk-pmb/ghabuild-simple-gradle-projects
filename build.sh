@@ -19,6 +19,7 @@ function build_init () {
   local -A JOB=(
     [max_concurrency]=64
     [grab_ls_before_jar]='. job/ lentic/'
+    [lentic_jar_dir]='build/libs'
     [github_jobmgmt_dura_sec]=30  # for setting up the job, cleanup tasks etc.
     [total_dura_tolerance_sec]=30 # tolerance for e.g. rounding errors.
     )
@@ -280,7 +281,7 @@ function build_grab () {
   vdo build_jar_add_extra_files lentic || return $?
   vdo build_jar_add_extra_files job || return $?
 
-  local JAR_DIR='lentic/build/libs'
+  local JAR_DIR="lentic/${JOB[lentic_jar_dir]}"
   local JAR_LIST='tmp.jars.txt'
   find_vsort "$JAR_DIR" -maxdepth 1 -type f -name '*.jar' \
     -printf '%f\n' >"$JAR_LIST" || return $?
