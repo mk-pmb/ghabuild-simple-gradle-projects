@@ -139,7 +139,9 @@ function build_predict_eta () {
 function build_decode_variation () {
   EQLN_ADD_KEY_PREFIX='job_' eqlines_dump_dict JOB >&6 || return $?
 
-  VARI=( [variation]="$VARI" )
+  echo "$VARI_JSON" >tmp.variation.json || return $?
+
+  VARI=()
   VARI[java_ver]="${JOB[java_ver]:-17}"
   [ ! -f lentic/gradle.properties ] || <lentic/gradle.properties \
     eqlines_read_dict VARI grpr_ || return $?
