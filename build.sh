@@ -141,7 +141,8 @@ function build_decode_variation () {
 
   VARI=( [variation]="$VARI" )
   VARI[java_ver]="${JOB[java_ver]:-17}"
-  eqlines_read_dict VARI grpr_ <lentic/gradle.properties || return $?
+  [ ! -f lentic/gradle.properties ] || <lentic/gradle.properties \
+    eqlines_read_dict VARI grpr_ || return $?
   VARI[root_project_name]="$(build_detect_root_project_name)" || return $?
   VARI[artifact]="$(build_gen_artifact_name)" || return $?
 
