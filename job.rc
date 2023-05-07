@@ -1,0 +1,8 @@
+# -*- coding: utf-8, tab-width: 2 -*-
+
+JOB[estimated_build_duration_per_variation]='less than a minute'
+JOB[max_build_duration_sec_per_variation]=30
+JOB[lentic_url]='job/.git'
+JOB[lentic_ref]='build-selftest-stub-gradlew'
+JOB[lentic_license_sha1s]='23f3ab648cf99b9a3a6f170b4b29145dc2b9cb8c  LICENSE.MIT.txt'
+JOB[jar_add_lentic_files]='LICENSE.MIT.txt'

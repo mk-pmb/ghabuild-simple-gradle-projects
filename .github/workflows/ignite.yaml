@@ -1,0 +1,22 @@
+%YAML 1.1
+# -*- coding: UTF-8, tab-width: 4 -*-
+---
+
+on:
+    push:
+        branches:
+          - 'build-**'
+          - 'debug-**'
+
+jobs:
+    ignite:
+        uses: 'mk-pmb/ghabuild-simple-gradle-projects/.github/workflows/build.yaml@experimental'
+
+    # The next part is optional, for automatically uploading a release.
+    publish:
+        needs: ignite
+        permissions:
+            contents: write
+        uses: 'mk-pmb/ghabuild-simple-gradle-projects/.github/workflows/autorelease.yaml@experimental'
+
+...
