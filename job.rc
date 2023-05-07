@@ -1,0 +1,8 @@
+# -*- coding: utf-8, tab-width: 2 -*-
+
+JOB[estimated_build_duration_per_variation]='7–10 minutes'
+JOB[max_build_duration_sec_per_variation]=$(( 10 * 60 ))
+JOB[lentic_url]='https://github.com/ThexXTURBOXx/tweed-api/'
+JOB[lentic_ref]='v4-1.19'
+JOB[lentic_license_sha1s]='7df059597099bb7dcf25d2a9aedfaf4465f72d8d  LICENSE'
+JOB[jar_add_lentic_files]='LICENSE -> LICENSE.txt'
