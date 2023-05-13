@@ -308,9 +308,13 @@ function build_grab () {
   local JAR_DIR="lentic/${JOB[lentic_jar_dir]}"
   local JAR_LIST='tmp.jars.txt'
   find_vsort "$JAR_DIR" -maxdepth 1 -type f -name '*.jar' \
-    -printf '%f\n' >"$JAR_LIST" || return $?
+    -printf '%f\n' >"$JAR_LIST" || true
   vdo base64 -- "$JAR_LIST"
   ghstep_dump_file 'JARs found before filtering' text "$JAR_LIST" || return $?
+  if [ ! -s "$JAR_LIST" ]; then
+    build_grab_found_no_jars
+    return 4
+  fi
   local ITEM= OPT=
   for ITEM in job/jar_filter{/[0-9]*,}.{sed,sh}; do
     [ -f "$ITEM" ] || continue
@@ -362,6 +366,20 @@ function build_jar_add_extra_files () {
     mkdir --parents -- "$(dirname -- "$DEST_FILE")"
     cp --verbose --no-target-directory -- "$SRC_FILE" "$DEST_FILE" || return $?
   done
+}
+
+
+function build_grab_found_no_jars () {
+  echo 'E: Found no JAR candidates.' >&2
+  echo
+  echo 'H: Check the list "Newly created lentic files"' \
+    'in the summary for ideas where the JARs might be.'
+  local MAYBE=
+  if [ ! -d "$JAR_DIR" ]; then
+    echo 'W: JAR dir "'"$JAR_DIR"'" does not seem to be a directory!' >&2
+    MAYBE="$(find lentic/ -maxdepth 4 -type d -name build)"
+    [ -z "$MAYBE" ] || echo "H: Might it be one of these? ${MAYBE//$'\n'/ | }"
+  fi
 }
 
 
