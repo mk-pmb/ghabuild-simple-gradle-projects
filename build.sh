@@ -116,23 +116,27 @@ function build_predict_eta () {
   [ "${N_VARI:-0}" -ge 1 ] || return 3$(
     echo "E: $FUNCNAME: Bad N_VARI='$N_VARI'" >&2)
 
-  local PER_VARI="${JOB[max_build_duration_sec_per_variation]}"
+  local OPT='max_build_duration_sec_per_variation'
+  local PER_VARI="${JOB[$OPT]}"
   echo "D: $FUNCNAME: original PER_VARI='$PER_VARI'" >&2
   if [ -z "$PER_VARI" ]; then
     echo 'eta=_unknown_'
     return 0
   fi
+  [ "$PER_VARI" -ge 1 ] || return 4$(
+    echo "E: $FUNCNAME: Invalid value for option $OPT!" >&2)
 
   let "PER_VARI+=${JOB[github_jobmgmt_dura_sec]}"
-  local ETA="$EPOCHSECONDS"
-  let "ETA+=($PER_VARI * $N_VARI)"
-  let "ETA+=${JOB[total_dura_tolerance_sec]}"
+  local DURA_TOL="${JOB[total_dura_tolerance_sec]}"
+  local DURA_ESTIM=$(( ( PER_VARI * N_VARI ) + DURA_TOL ))
+  local ETA=$(( EPOCHSECONDS + DURA_ESTIM ))
 
   local HR="$(date --utc --date="@${ETA:-0}" +'%H:%M UTC, %F')"
+  local -p | sed -re "s~^~D: $FUNCNAME: ~" >&2
   MEM[eta_hr]="$HR"
-  echo "D: $FUNCNAME: PER_VARI='$PER_VARI' ETA='$ERA' HR='$HR'" >&2
   [[ "$HR" != *' 1970-'* ]] || return 4$(echo 'E: ETA calculation failed.' >&2)
   echo "eta=$HR"
+  [ "${DURA_ESTIM:-0}" -ge 1 ] || return 4$(echo "E: $FUNCNAME: FUBAR!" >&2)
 }
 
 
