@@ -341,14 +341,23 @@ function build_grab () {
       * ) echo "E: unsupported filename extension: $ITEM" >&2; return 3;;
     esac
   done
-  ITEM="$JAR_DIR/$(grep -Pe '^\w' -- "$JAR_LIST")"
+  ITEM="$(grep -Pe '^\w' -- "$JAR_LIST")"
   case "$ITEM" in
     '' ) echo 'E: No JAR remaining after filtering.' >&2; return 4;;
     *$'\n'* )
       echo "E: Too many JARs remaining after filtering: ${ITEM//$'\n'/¶ }" >&2
       return 4;;
   esac
+  ITEM="$JAR_DIR/$ITEM"
   echo "orig_jar_path=$ITEM" >&6
+
+  ( echo
+    echo '```text'
+    echo "Original JAR:  $ITEM"
+    echo "Artifact name: ${VARI[artifact]}"
+    echo '```'
+    echo
+  ) >&7
 
   local RLS_DIR='release'
   mkdir --parents -- "$RLS_DIR" || return $?
