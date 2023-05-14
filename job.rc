@@ -1,0 +1,9 @@
+# -*- coding: utf-8, tab-width: 2 -*-
+
+JOB[estimated_build_duration_per_variation]='7–10 minutes'
+JOB[max_build_duration_sec_per_variation]=$(( 10 * 60 ))
+JOB[lentic_url]='https://github.com//architectury/architectury-api.git'
+JOB[lentic_ref]='1.19.4'
+JOB[lentic_license_sha1s]='064c2012bbc9ead37b7805b1577367593cce3772  LICENSE.md'
+JOB[jar_add_lentic_files]='LICENSE.md -> LICENSE.txt'
+JOB[lentic_jar_dir]='fabric/build/libs'
