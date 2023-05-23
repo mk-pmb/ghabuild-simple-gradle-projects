@@ -217,7 +217,7 @@ function build_apply_hotfixes__runparts () {
 
 
 function build_detect_root_project_name () {
-  local PN="$(build_detect_root_project_name__core)"
+  local PN="$(build_detect_root_project_name__core | sort --unique)"
   local BEFORE=
   until [ "$PN" == "$BEFORE" ]; do
     BEFORE="$PN"
