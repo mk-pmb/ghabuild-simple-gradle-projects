@@ -255,8 +255,8 @@ function build_gen_artifact_name () {
   esac
   ARTI="${VARI[root_project_name]}-v${VARI[grpr_version]}"
 
-  ARTI+="$(version_triad_if_set "${VARI[grpr_minecraft_version]}" -mc
-    )" || return $?
+  ARTI+="$(version_triad_if_set "$(build_guess_minecraft_version
+    )" -mc)" || return $?
 
   ARTI+="-$(date --utc +'%y%m%d-%H%M%S')"
   ARTI="${ARTI,,}.jar"
@@ -398,6 +398,15 @@ function build_grab_found_no_jars () {
     MAYBE="$(find lentic/ -maxdepth 4 -type d -name build)"
     [ -z "$MAYBE" ] || echo "H: Might it be one of these? ${MAYBE//$'\n'/ | }"
   fi
+}
+
+
+function build_guess_minecraft_version () {
+  local VER="${VARI[grpr_minecraft_version]}"
+  if [ -n "$VER" ]; then echo "$VER"; return 0; fi
+
+  sed -nre 's~\s+|"~~g;s~^minecraftVersion=~~p' \
+    -- lentic/gradle/libs.versions.toml 2>/dev/null | grep . && return 0
 }
 
 
