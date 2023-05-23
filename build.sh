@@ -12,6 +12,7 @@ function build_init () {
   [ -n "$GITHUB_OUTPUT" ] || local GITHUB_OUTPUT='tmp.ghout.txt'
   [ -n "$GITHUB_STEP_SUMMARY" ] || local GITHUB_STEP_SUMMARY='tmp.ghsum.txt'
   [ "$USER" == runner ] || >"$GITHUB_STEP_SUMMARY" >"$GITHUB_OUTPUT"
+  exec </dev/null
   exec 6>>"$GITHUB_OUTPUT" || return $?
   exec 7>>"$GITHUB_STEP_SUMMARY" || return $?
 
@@ -22,6 +23,7 @@ function build_init () {
     [lentic_jar_dir]='build/libs'
     [github_jobmgmt_dura_sec]=30  # for setting up the job, cleanup tasks etc.
     [total_dura_tolerance_sec]=30 # tolerance for e.g. rounding errors.
+    [hotfix_timeout]='30s'
     )
   [ -d job ] || ln --symbolic --target-directory=. -- ../job || return $?
   source -- job/job.rc || return $?$(
@@ -32,9 +34,15 @@ function build_init () {
     $(cat -- tmp.variation.dict) )" || return $?
   # local -p
 
+  local BUILD_ERR_LOG="tmp.build_step_errors.$$.log"
   local TASK="$1"; shift
-  build_"$TASK" "$@" && return 0
+  build_"$TASK" "$@" 2> >(tee -- "$BUILD_ERR_LOG" >&2)
   local RV=$?
+  sleep 0.5s  # Give error log tee some time to settle
+  killall -HUP tee 2>/dev/null || true
+  [ "$RV" == 0 ] && return 0
+
+  ghstep_dump_file 'Build step error log' text "$BUILD_ERR_LOG" || return $?
   echo :
   echo "E: Build task $TASK failed, rv=$RV"
   yes : 2>/dev/null > >(head --lines=15)
