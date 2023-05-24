@@ -152,10 +152,6 @@ function build_decode_variation () {
 
   VARI=()
   VARI[java_ver]="${JOB[java_ver]:-17}"
-  [ ! -f lentic/gradle.properties ] || <lentic/gradle.properties \
-    eqlines_read_dict VARI grpr_ || return $?
-  VARI[root_project_name]="$(build_detect_root_project_name)" || return $?
-  VARI[artifact]="$(build_gen_artifact_name)" || return $?
 
   eqlines_dump_dict VARI >&6 || return $?
   local REBASH="$(dump_bash_dict_pairs VARI)"
@@ -265,8 +261,9 @@ function build_apply_hotfixes__one_patch () {
 }
 
 
-function build_detect_root_project_name () {
-  local PN="$(build_detect_root_project_name__core | sort --unique)"
+function build_detect_lentic_meta () {
+  local PROP="$1"
+  local PN="$("$FUNCNAME"__"$PROP" | sort --unique)"
   local BEFORE=
   until [ "$PN" == "$BEFORE" ]; do
     BEFORE="$PN"
@@ -275,14 +272,15 @@ function build_detect_root_project_name () {
   case "$PN" in
     '' ) echo "E: $FUNCNAME: Found nothing" >&2; return 4;;
     *$'\n'* )
-      echo "E: $FUNCNAME: Found too many names: ${PN//$'\n'/¶ }" >&2
+      echo "E: $FUNCNAME: Found too many candidates for $PROP:" \
+        "${PN//$'\n'/¶ }" >&2
       return 4;;
   esac
   echo "$PN"
 }
 
 
-function build_detect_root_project_name__core () {
+function build_detect_lentic_meta__project_name () {
   sed -nrf <(echo '
     s~"~~g;s~^rootProject\.name\s*=\s*~~p
     ') -- lentic/settings.gradle{,.*,.kts} 2>/dev/null
@@ -293,18 +291,38 @@ function build_detect_root_project_name__core () {
 }
 
 
+function build_detect_lentic_meta__project_version () {
+  sed -nrf <(echo '
+    s~"~~g;s~^version\s*=\s*~~p
+    ') -- lentic/gradle.properties 2>/dev/null
+}
+
+
+function build_detect_lentic_meta__minecraft_version () {
+  sed -nrf <(echo '
+    s~"~~g;s~^minecraft_version\s*=\s*~~p
+    ') -- lentic/gradle.properties 2>/dev/null
+
+  sed -nre 's~\s+|"~~g;s~^minecraftVersion=~~p' \
+    -- lentic/gradle/libs.versions.toml 2>/dev/null | grep . && return 0
+}
+
+
 function build_gen_artifact_name () {
   local ARTI="${JOB[artifact]}"
   case "$ARTI" in
+    '' ) ;; # guess.
     *'<'*'>'* )
       echo 'E: Slot names in artifact name are not supported yet.' >&4
       return 3;;
-    '' ) ;; # guess.
     * ) echo "$ARTI"; return 0;;
   esac
-  ARTI="${VARI[root_project_name]}-v${VARI[grpr_version]}"
 
-  ARTI+="$(version_triad_if_set "$(build_guess_minecraft_version
+  local PROJ_NAME="$(build_detect_lentic_meta project_name)"
+  local PROJ_VER="$(build_detect_lentic_meta project_version)"
+  ARTI="$PROJ_NAME-v$PROJ_VER"
+
+  ARTI+="$(version_triad_if_set "$(build_detect_lentic_meta minecraft_version
     )" -mc)" || return $?
 
   ARTI+="-$(date --utc +'%y%m%d-%H%M%S')"
@@ -328,7 +346,10 @@ function version_triad_if_set () {
 
 
 function build_gradle () {
-  [ -n "${VARI[artifact]}" ] || return 4$(echo 'E: Empty artifact name!' >&2)
+  local ARTIFACT="$(build_gen_artifact_name)"
+  [ -n "$ARTIFACT" ] || return 4$(echo 'E: Failed to decide artifact name!' >&2)
+  echo "artifact=$ARTIFACT" >&6
+
   cd -- lentic || return $?
   local GW_OPT=(
     --stacktrace
@@ -355,7 +376,7 @@ function build_gradle () {
 
 
 function build_grab () {
-  [ -n "${VARI[artifact]}" ] || return 4$(echo 'E: Empty artifact name!' >&2)
+  [ -n "$ARTIFACT" ] || return 4$(echo 'E: Empty artifact name!' >&2)
 
   local NLF='tmp.new_lentic_files.txt'
   find_vsort lentic/ -mindepth 1 -type d -name '.*' -prune , \
@@ -396,14 +417,14 @@ function build_grab () {
   ( echo
     echo '```text'
     echo "Original JAR:  $ITEM"
-    echo "Artifact name: ${VARI[artifact]}"
+    echo "Artifact name: $ARTIFACT"
     echo '```'
     echo
   ) >&7
 
   local RLS_DIR='release'
   mkdir --parents -- "$RLS_DIR" || return $?
-  local RLS_JAR="$RLS_DIR/${VARI[artifact]}"
+  local RLS_JAR="$RLS_DIR/$ARTIFACT"
   mv --verbose --no-target-directory -- "$ITEM" "$RLS_JAR" || return $?
   vdo nice_ls -- "$RLS_DIR"/ || return $?
 
@@ -440,15 +461,6 @@ function build_grab_found_no_jars () {
     MAYBE="$(find lentic/ -maxdepth 4 -type d -name build)"
     [ -z "$MAYBE" ] || echo "H: Might it be one of these? ${MAYBE//$'\n'/ | }"
   fi
-}
-
-
-function build_guess_minecraft_version () {
-  local VER="${VARI[grpr_minecraft_version]}"
-  if [ -n "$VER" ]; then echo "$VER"; return 0; fi
-
-  sed -nre 's~\s+|"~~g;s~^minecraftVersion=~~p' \
-    -- lentic/gradle/libs.versions.toml 2>/dev/null | grep . && return 0
 }
 
 
