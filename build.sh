@@ -67,9 +67,6 @@ function build_clone_lentic_repo () {
   fi
   vdo git clone --single-branch --branch="${JOB[lentic_ref]}" \
     -- "${JOB[lentic_url]}" lentic || return $?
-
-  chmod a+x -- lentic/gradlew || return $?
-  # ^-- Some repos don't have +x. Maybe their maintainers use Windows.
 }
 
 
@@ -169,58 +166,102 @@ function build_decode_variation () {
 }
 
 
-function build_apply_hotfixes () {
-  local SCAN=()
-  build_apply_hotfixes__runparts early || return $?
-
-  build_apply_hotfixes__scan fix || return $?
-  local ORIG= FIX=
-  for FIX in "${SCAN[@]}"; do
-    ORIG="${FIX%.fix.*}"
-    ORIG="lentic/${ORIG#*/*/}"
-    if [ -x "$FIX" ]; then
-      vdo ./"$FIX" -i -- "$ORIG" || return $?
-      continue
-    fi
-    vdo sed -rf "$FIX" -i -- "$ORIG" || return $?
-  done
-
-  build_apply_hotfixes__runparts late || return $?
-
-  local MODIF="$(git status --short)"
-  [ -n "$MODIF" ] || return 0
-  ghstep_dump_file 'Hotfixed files' text <<<"$MODIF" || return $?
-
-  cd -- lentic || return $?
-  git add -A . || return $?
-  git commit -m 'Apply hotfixes' || return $?
-  cd -- "$SELFPATH" || return $?
-  GIT_DIR=lentic/ git format-patch --irreversible-delete --stdout \
-    'HEAD~1..HEAD' | ghstep_dump_file 'Hotfix patch' diff || return $?
-  ghstep_dump_file 'Hotfix' text <<<"$MODIF" || return $?
+function git_in_lentic () {
+  GIT_DIR=lentic/.git/ GIT_WORK_TREE=lentic/ git "$@"
 }
 
 
-function build_apply_hotfixes__scan () {
-  SCAN=(
+function build_run_patcher () {
+  local FIX="$1"; shift
+  local OPT=
+  case "$FIX" in
+    *.sed ) OPT='-i';;
+  esac
+  local WRAPS=(
+    vdo
+    timeout ${JOB[hotfix_timeout]}
+    )
+  if [ -x "$FIX" ]; then
+    "${WRAPS[@]}" ./"$FIX" $OPT -- "$@"
+    return $?
+  fi
+  case "$FIX" in
+    *.sed ) "${WRAPS[@]}" sed -rf "$FIX" -$OPT -- "$@" || return $?;;
+    *.sh ) "${WRAPS[@]}" bash -- "$FIX" "$@" || return $?;;
+    * ) echo "E: unsupported filename extension: $FIX" >&2; return 3;;
+  esac
+}
+
+
+function build_apply_hotfixes () {
+  build_apply_hotfixes__phase early || return $?
+  build_apply_hotfixes__phase fix || return $?
+  build_apply_hotfixes__phase late || return $?
+
+  local MODIF='tmp.hotfix.modif_files.txt'
+  VDO_TEE="$MODIF" vdo git_in_lentic status --short
+  ghstep_dump_file 'Hotfixed files' text "$MODIF" || return $?
+
+  if [ ! -s "$MODIF" ]; then
+    echo "D: Hotfixes caused no changes in git-tracked files."
+    return 0
+  fi
+
+  git_in_lentic commit -m 'Apply hotfixes' || return $?
+  git_in_lentic format-patch --irreversible-delete --stdout 'HEAD~1..HEAD' \
+    | ghstep_dump_file 'Hotfix patch' diff || return $?
+}
+
+
+function build_apply_hotfixes__phase () {
+  local PHASE="$1"
+  local FIX=
+  [ -z "$PHASE" ] || FIX=".$PHASE"
+  local SCAN=(
     find
     job/hotfixes/
     -type f
     '(' -false
-      -o -name "*.$1.sed"
-      -o -name "*.$1.sh"
+      -o -name "*$FIX.sed"
+      -o -name "*$FIX.sh"
       ')'
     -printf '%f\t%p\n'
     )
   readarray -t SCAN < <("${SCAN[@]}" | sort --version-sort | cut -sf 2-)
+
+  for FIX in "${SCAN[@]}"; do
+    build_apply_hotfixes__one_patch "$FIX" || return $?
+  done
 }
 
 
-function build_apply_hotfixes__runparts () {
-  local FIX=
-  for FIX in "${SCAN[@]}"; do
-    [ ! -x "$FIX" ] || vdo ./"$FIX" || return $?
-  done
+function build_apply_hotfixes__one_patch () {
+  local FIX="$1"
+  echo "D: Patch: $FIX"
+
+  if git_in_lentic status --short | grep -Pe '^.\S'; then
+    echo 'E: Flinching: Found unstaged changes before patch!' >&2
+    return 4
+  fi
+
+  local ORIG="${FIX%.*.*}"
+  ORIG="lentic/${ORIG#*/*/}"
+  build_run_patcher "$FIX" "$ORIG" || return $?
+
+  if git_in_lentic status --short | grep -Pe '^.\S'; then
+    vdo git_in_lentic add -A . || return $?
+    return 0
+  fi
+
+  if grep -Pe '^## '-- "$FIX" | grep -qwFe 'optional_patch'; then
+    echo "D: Optional patch caused no unstaged changes."
+    return 0
+  fi
+
+  echo "E: No unstaged changes after patch" \
+    "and patch is not marked as optional." >&2
+  git_in_lentic status --short | base64
+  return 8
 }
 
 
@@ -294,6 +335,11 @@ function build_gradle () {
     --info
     --scan
     )
+
+  # Chmod only after hotfixes, becuase hotfixes expect the repo to be clean.
+  chmod a+x -- gradlew || return $?
+  # ^-- Some repos don't have +x. Maybe their maintainers use Windows.
+
   vdo ./gradlew clean "${GW_OPT[@]}" || true
   local GR_LOG='../tmp.gradlew.log'
   VDO_TEE="$GR_LOG" vdo ./gradlew build "${GW_OPT[@]}" && return 0
@@ -335,19 +381,7 @@ function build_grab () {
   local ITEM= OPT=
   for ITEM in job/jar_filter{/[0-9]*,}.{sed,sh}; do
     [ -f "$ITEM" ] || continue
-    if [ -x "$ITEM" ]; then
-      case "$ITEM" in
-        *.sed ) OPT='-i';;
-        * ) OPT=;;
-      esac
-      vdo "$ITEM" $OPT "$JAR_LIST" || return $?
-      continue
-    fi
-    case "$ITEM" in
-      *.sed ) vdo sed -rf "$ITEM" -i -- "$JAR_LIST" || return $?;;
-      *.sh ) vdo bash -- "$ITEM" "$JAR_LIST" || return $?;;
-      * ) echo "E: unsupported filename extension: $ITEM" >&2; return 3;;
-    esac
+    build_run_patcher "$ITEM" "$JAR_LIST" || return $?
   done
   ITEM="$(grep -Pe '^\w' -- "$JAR_LIST")"
   case "$ITEM" in
