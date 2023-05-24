@@ -106,7 +106,7 @@ jobs:
         runs-on: ubuntu-latest
 
         outputs:
-            artifact_name: '${{ steps.v.outputs.artifact }}'
+            artifact_name: '${{ steps.g.outputs.artifact }}'
 
         strategy:
             fail-fast: false
@@ -156,18 +156,21 @@ jobs:
 
           - name: 'Build the project — this usually takes ${{
                 needs.prep.outputs.dura }}'
+            id: g
             run: './B gradle'
             if: '${{ steps.v.outputs.java_ver }}'
 
           - name: 'Grab the relevant binaries'
+            if: '${{ steps.g.outputs.artifact }}'
             run: './B grab'
-            if: '${{ steps.v.outputs.artifact }}'
+            env:
+                ARTIFACT: '${{ steps.g.outputs.artifact }}'
 
           - name: 'Upload JAR file as artifact'
-            if: '${{ steps.v.outputs.artifact }}'
+            if: '${{ steps.g.outputs.artifact }}'
             uses: actions/upload-artifact@v3
             with:
-                name: '${{ steps.v.outputs.artifact }}'
+                name: '${{ steps.g.outputs.artifact }}'
                 path: b/jar-unpacked
                 if-no-files-found: error
                 retention-days: 1 # Rather, re-upload them as a release.
