@@ -58,6 +58,6 @@ The files in this actual repo are multi-licensed as `ISC`,
 
 #### ⚠ The workflows ⚠
 
-… may fetches files governed by other licenses,
+… may fetch files governed by other licenses,
 so the artifacts built often are under a different license,
 usually the one of the project being imported.
