@@ -1,0 +1,8 @@
+# -*- coding: utf-8, tab-width: 2 -*-
+
+JOB[estimated_build_duration_per_variation]='7–10 minutes'
+JOB[max_build_duration_sec_per_variation]=$(( 10 * 60 ))
+JOB[lentic_url]='https://github.com/Wurst-Imperium/WI-Zoom.git'
+JOB[lentic_ref]='1.19.4'
+JOB[lentic_license_sha1s]='31a3d460bb3c7d98845187c716a30db81c44b615  LICENSE.txt'
+JOB[jar_add_lentic_files]='LICENSE.txt'
