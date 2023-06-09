@@ -266,48 +266,59 @@ function build_apply_hotfixes__one_patch () {
 
 function build_detect_lentic_meta () {
   local PROP="$1"
-  local PN="$("$FUNCNAME"__"$PROP" | sort --unique)"
+  local VAL=
+  local SIMP=()
+  case "$PROP" in
+    project_version ) SIMP=(
+      '!mod_version=' lentic/gradle.properties
+      '!version=' lentic/gradle.properties
+      );;
+    project_name ) SIMP=(
+      '!rootProject\.name=' lentic/settings.gradle{,.*,.kts}
+      '!mod_id=' lentic/gradle.properties
+      '!archives_base_name=' lentic/gradle.properties
+      );;
+    minecraft_version ) SIMP=(
+      '!minecraft_version=' lentic/gradle.properties
+      '!minecraftVersion=' lentic/gradle/libs.versions.toml
+      );;
+    * )
+      echo "E: $FUNCNAME: Unsupported meta prop: '$PROP'" >&2
+      return 3;;
+  esac
+  [ -z "${SIMP[0]}" ] || VAL="$(
+    build_detect_lentic_meta__simple "${SIMP[@]}")"
+
+  VAL="${VAL//$'\r'/}"  # <- in case we forgot in a detector
+  VAL="$(<<<"$VAL" sort --unique)"
   local BEFORE=
-  until [ "$PN" == "$BEFORE" ]; do
-    BEFORE="$PN"
-    PN="${PN%[/_.-]}"
+  until [ "$VAL" == "$BEFORE" ]; do
+    BEFORE="$VAL"
+    VAL="${VAL%[/_.-]}"
   done
-  case "$PN" in
-    '' ) echo "E: $FUNCNAME: Found nothing" >&2; return 4;;
+  case "$VAL" in
+    '' ) echo "E: $FUNCNAME '$PROP': Found nothing" >&2; return 4;;
     *$'\n'* )
-      echo "E: $FUNCNAME: Found too many candidates for $PROP:" \
-        "${PN//$'\n'/¶ }" >&2
+      echo "E: $FUNCNAME '$PROP': Found too many candidates:" \
+        "${VAL//$'\n'/¶ }" >&2
       return 4;;
   esac
-  echo "$PN"
+  echo "$VAL"
 }
 
 
-function build_detect_lentic_meta__project_name () {
-  sed -nrf <(echo '
-    s~"~~g;s~^rootProject\.name\s*=\s*~~p
-    ') -- lentic/settings.gradle{,.*,.kts} 2>/dev/null
-
-  sed -nrf <(echo '
-    s~"~~g;s~^mod_id\s*=\s*~~p
-    ') -- lentic/gradle.properties 2>/dev/null
-}
-
-
-function build_detect_lentic_meta__project_version () {
-  sed -nrf <(echo '
-    s~"~~g;s~^version\s*=\s*~~p
-    ') -- lentic/gradle.properties 2>/dev/null
-}
-
-
-function build_detect_lentic_meta__minecraft_version () {
-  sed -nrf <(echo '
-    s~"~~g;s~^minecraft_version\s*=\s*~~p
-    ') -- lentic/gradle.properties 2>/dev/null
-
-  sed -nre 's~\s+|"~~g;s~^minecraftVersion=~~p' \
-    -- lentic/gradle/libs.versions.toml 2>/dev/null | grep . && return 0
+function build_detect_lentic_meta__simple () {
+  local BASE_SED='s~\s+|"~~g'  # <-- \s especially because of \r$
+  local FILE= RX=
+  for FILE in "$@"; do
+    if [ "${FILE:0:1}" == '!' ]; then
+      RX="$BASE_SED;s!^${FILE:1}!!p"
+      continue
+    fi
+    [ -n "$RX" ] || return 3$(
+      echo "E: $FUNCNAME: No regexp for file '$FILE'" >&2)
+    sed -nrf <(echo "$RX") -- "$FILE" 2>/dev/null
+  done
 }
 
 
@@ -322,12 +333,21 @@ function build_gen_artifact_name () {
   esac
 
   local PROJ_NAME="$(build_detect_lentic_meta project_name)"
+  [ -n "$PROJ_NAME" ] || PROJ_NAME='unnamed_project'
   local PROJ_VER="$(build_detect_lentic_meta project_version)"
   ARTI="$PROJ_NAME-v$PROJ_VER"
 
-  ARTI+="$(version_triad_if_set "$(build_detect_lentic_meta minecraft_version
-    )" -mc)" || return $?
+  local MC_VER=
+  MC_VER="$(build_detect_lentic_meta minecraft_version)" || return $?
+  [ -n "$MC_VER" ] && case "$PROJ_VER" in
+    *-[Mm][Cc]"$MC_VER" | \
+    *-[Mm][Cc]"$MC_VER".0 | \
+    *-"$MC_VER".0 | \
+    *-"$MC_VER" ) MC_VER=;;
+  esac
+  [ -z "$MC_VER" ] || ARTI+="$(version_triad_if_set "$MC_VER" -mc)"
 
+  local -p >&2
   ARTI+="-$(date --utc +'%y%m%d-%H%M%S')"
   ARTI="${ARTI,,}.jar"
   echo "$ARTI"
