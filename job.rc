@@ -3,7 +3,7 @@
 JOB[estimated_build_duration_per_variation]='7–10 minutes'
 JOB[max_build_duration_sec_per_variation]=$(( 10 * 60 ))
 JOB[lentic_url]='https://github.com/shedaniel/cloth-config.git'
-JOB[lentic_ref]='v10'
+JOB[lentic_ref]='v11'
 JOB[lentic_license_sha1s]='70141d84fea08219e672354812ed38adc44eb208  LICENSE.md'
 JOB[jar_add_lentic_files]='LICENSE.md -> LICENSE.txt'
 JOB[lentic_jar_dir]='fabric/build/libs'
