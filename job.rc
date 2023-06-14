@@ -3,7 +3,7 @@
 JOB[estimated_build_duration_per_variation]='7–10 minutes'
 JOB[max_build_duration_sec_per_variation]=$(( 10 * 60 ))
 JOB[lentic_url]='https://github.com/shedaniel/RoughlyEnoughItems/'
-JOB[lentic_ref]='11.x-1.19.4'
+JOB[lentic_ref]='12.x-1.20'
 JOB[lentic_license_sha1s]='627780dd2d635d326d0dc91297d739326d3140c5  LICENSE'
 JOB[jar_add_lentic_files]='LICENSE -> LICENSE.txt'
 JOB[lentic_jar_dir]='fabric/build/libs'
