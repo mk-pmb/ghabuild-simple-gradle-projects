@@ -272,6 +272,7 @@ function build_detect_lentic_meta () {
     project_version ) SIMP=(
       '!mod_version=' lentic/gradle.properties
       '!version=' lentic/gradle.properties
+      '!base_version=' lentic/gradle.properties
       );;
     project_name ) SIMP=(
       '!rootProject\.name=' lentic/settings.gradle{,.*,.kts}
