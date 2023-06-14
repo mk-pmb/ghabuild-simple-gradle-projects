@@ -1,0 +1,10 @@
+# -*- coding: utf-8, tab-width: 2 -*-
+
+JOB[estimated_build_duration_per_variation]='7–10 minutes'
+JOB[max_build_duration_sec_per_variation]=$(( 10 * 60 ))
+JOB[lentic_url]='https://github.com/EngineHub/WorldEdit.git'
+JOB[lentic_ref]='version/7.2.x'
+JOB[lentic_reset]='5ca4dffd1208846a24c9462b855690f835c9eadf' # Release 7.2.15
+JOB[lentic_license_sha1s]='5fefeea41e8cadb5df4b2b49ce1103bc79f89e85  LICENSE.txt'
+JOB[jar_add_lentic_files]='LICENSE.txt'
+JOB[lentic_jar_dir]='worldedit-fabric/build/libs'
