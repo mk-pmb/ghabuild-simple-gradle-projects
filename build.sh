@@ -431,34 +431,16 @@ function build_grab () {
   vdo build_jar_add_extra_files lentic || return $?
   vdo build_jar_add_extra_files "$JOB_SPEC_DIR" || return $?
 
-  local JAR_DIR="lentic/${JOB[lentic_jar_dir]}"
-  local JAR_LIST='tmp.jars.txt'
-  find_vsort "$JAR_DIR" -maxdepth 1 -type f -name '*.jar' \
-    -printf '%f\n' >"$JAR_LIST" || true
-  vdo base64 -- "$JAR_LIST"
-  ghstep_dump_file 'JARs found before filtering' text "$JAR_LIST" || return $?
-  if [ ! -s "$JAR_LIST" ]; then
-    build_grab_found_no_jars
-    return 4
-  fi
-  local ITEM= OPT=
-  for ITEM in "$JOB_SPEC_DIR"/jar_filter{/[0-9]*,}.{sed,sh}; do
-    [ -f "$ITEM" ] || continue
-    build_run_patcher "$ITEM" "$JAR_LIST" || return $?
-  done
-  ITEM="$(grep -Pe '^\w' -- "$JAR_LIST")"
-  case "$ITEM" in
-    '' ) echo 'E: No JAR remaining after filtering.' >&2; return 4;;
-    *$'\n'* )
-      echo "E: Too many JARs remaining after filtering: ${ITEM//$'\n'/¶ }" >&2
-      return 4;;
-  esac
-  ITEM="$JAR_DIR/$ITEM"
-  echo "orig_jar_path=$ITEM" >&6
+  local ORIG_JAR=
+  build_grab_guess_jar_file "ORIG_JAR='¤'" || return $?
+  [ -n "$ORIG_JAR" ] || return $?$(echo "E: Failed to guess JAR file." >&2)
+  [ -f "$ORIG_JAR" ] || return $?$(
+    echo "E: Guessed JAR file is not a regular file: '$ORIG_JAR'" >&2)
+  echo "orig_jar_path=$ORIG_JAR" >&6
 
   ( echo
     echo '```text'
-    echo "Original JAR:  $ITEM"
+    echo "Original JAR:  $ORIG_JAR"
     echo "Artifact name: $ARTIFACT"
     echo '```'
     echo
@@ -467,13 +449,13 @@ function build_grab () {
   local RLS_DIR='release'
   mkdir --parents -- "$RLS_DIR" || return $?
   local RLS_JAR="$RLS_DIR/$ARTIFACT"
-  mv --verbose --no-target-directory -- "$ITEM" "$RLS_JAR" || return $?
+  mv --verbose --no-target-directory -- "$ORIG_JAR" "$RLS_JAR" || return $?
   vdo nice_ls -- "$RLS_DIR"/ || return $?
 
   unzip -d "$JAR_UNP" -- "$RLS_JAR" || return $?
-  ITEM='tmp.files_in_jar.txt'
-  VDO_TEE="$ITEM" vdo find_vsort "$JAR_UNP" || return $?
-  ghstep_dump_file 'Files in the JAR' text "$ITEM" || return $?
+  local VDO_TEE='tmp.files_in_jar.txt'
+  vdo find_vsort "$JAR_UNP" || return $?
+  ghstep_dump_file 'Files in the JAR' text "$VDO_TEE" || return $?
 }
 
 
@@ -489,6 +471,59 @@ function build_jar_add_extra_files () {
     mkdir --parents -- "$(dirname -- "$DEST_FILE")"
     cp --verbose --no-target-directory -- "$SRC_FILE" "$DEST_FILE" || return $?
   done
+}
+
+
+function build_grab_guess_jar_file () {
+  local REPORT="${1:-echo '¤'}"; shift
+  local JAR_DIR="lentic/${JOB[lentic_jar_dir]}"
+  local JAR_LIST='tmp.jars.txt'
+  find_vsort "$JAR_DIR" -maxdepth 1 -type f -name '*.jar' \
+    -printf '%f\n' >"$JAR_LIST" || true
+  vdo base64 --wrap=512 -- "$JAR_LIST"
+  ghstep_dump_file 'JARs found before filtering' text "$JAR_LIST" || return $?
+  if [ ! -s "$JAR_LIST" ]; then
+    build_grab_found_no_jars
+    return 4
+  fi
+
+  local ITEM= OPT=
+  for ITEM in "$JOB_SPEC_DIR"/jar_filter{/[0-9]*,}.{sed,sh}; do
+    [ -f "$ITEM" ] || continue
+    build_run_patcher "$ITEM" "$JAR_LIST" || return $?
+  done
+
+  ITEM="$(grep -Pe '^\w' -- "$JAR_LIST")"
+  case "$ITEM" in
+    '' ) echo 'E: No JAR remaining after custom filters.' >&2; return 4;;
+    *$'\n'* ) ;;
+    * ) build_grab_guess_jar_file__report; return $?;;
+  esac
+
+  echo 'W: Too many JARs remaining after custom filters:' >&2
+  nl -ba <<<"$ITEM" >&2
+  echo 'D: Retrying with additional default filters.'
+  local DFF='
+    /\-(debug|sources)?\.jar$/d
+    '
+  ITEM="$(<<<"$ITEM" sed -rf <(echo "$DFF") )"
+
+  case "$ITEM" in
+    '' ) echo 'E: No JAR remaining after default filters.' >&2; return 4;;
+    *$'\n'* )
+      echo 'E: Too many JARs remaining after default filters:' >&2
+      nl -ba <<<"$ITEM" >&2
+      return 4;;
+  esac
+
+  build_grab_guess_jar_file__report; return $?
+}
+
+
+function build_grab_guess_jar_file__report () {
+  echo "D: $FUNCNAME: >> $REPORT <<" >&2
+  REPORT="${REPORT//¤/"$JAR_DIR/$ITEM"}"
+  eval "$REPORT"
 }
 
 
