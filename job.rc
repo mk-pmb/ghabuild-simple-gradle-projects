@@ -1,0 +1,9 @@
+# -*- coding: utf-8, tab-width: 2 -*-
+
+JOB[estimated_build_duration_per_variation]='7–10 minutes'
+JOB[max_build_duration_sec_per_variation]=$(( 10 * 60 ))
+# JOB[lentic_url]='https://github.com/LambdAurora/LambDynamicLights.git'
+JOB[lentic_url]='https://github.com/Lisixo/LambDynamicLights.git'
+JOB[lentic_ref]='1.20'
+JOB[lentic_license_sha1s]='324af8f0389045f504538818e7d02f3ea1d74c22  LICENSE'
+JOB[jar_add_lentic_files]='LICENSE -> LICENSE.txt'
