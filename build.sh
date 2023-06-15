@@ -297,6 +297,7 @@ function build_detect_lentic_meta () {
     minecraft_version ) SIMP=(
       '!minecraft_version=' lentic/gradle.properties
       '!minecraftVersion=' lentic/gradle/libs.versions.toml
+      '!valminecraftVersion=' lentic/{*-,}fabric/build.gradle.kts
       );;
     * )
       echo "E: $FUNCNAME: Unsupported meta prop: '$PROP'" >&2
