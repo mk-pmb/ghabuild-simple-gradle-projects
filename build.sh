@@ -68,10 +68,22 @@ function build_git_basecfg () {
 function build_clone_lentic_repo () {
   if [ -f lentic/.git/config ]; then
     echo 'Skip cloning: Repo lentic already exists.'
-    return 0
+  else
+    vdo git clone --single-branch --branch="${JOB[lentic_ref]}" \
+      -- "${JOB[lentic_url]}" lentic || return $?
   fi
-  vdo git clone --single-branch --branch="${JOB[lentic_ref]}" \
-    -- "${JOB[lentic_url]}" lentic || return $?
+
+  local V="${JOB[lentic_rebranch]}"
+  if [ -z "$V" ]; then
+    true
+  elif [ "$V" == "$(git_in_lentic branch --show-current)" ]; then
+    echo "D: Lentic repo's branch already is '$V'."
+  else
+    vdo git_in_lentic checkout -b "$V" || return $?
+  fi
+
+  V="${JOB[lentic_reset]}"
+  [ -z "$V" ] || vdo git_in_lentic reset --hard "$V" || return $?
 }
 
 
