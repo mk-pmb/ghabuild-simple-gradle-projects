@@ -312,7 +312,7 @@ function build_detect_lentic_meta () {
 
 
 function build_detect_lentic_meta__simple () {
-  local BASE_SED='s~\s+|"~~g'  # <-- \s especially because of \r$
+  local BASE_SED='s~\s+|\x22|\x27~~g'  # <-- \s especially because of \r$
   local FILE= RX=
   for FILE in "$@"; do
     if [ "${FILE:0:1}" == '!' ]; then
