@@ -16,17 +16,19 @@ function build_init () {
   exec 6>>"$GITHUB_OUTPUT" || return $?
   exec 7>>"$GITHUB_STEP_SUMMARY" || return $?
 
+  [ -n "$JOB_SPEC_DIR" ] || export JOB_SPEC_DIR='tmp.job'
   local -A MEM=()
   local -A JOB=(
     [max_concurrency]=64
-    [grab_ls_before_jar]='. job/ lentic/'
+    [grab_ls_before_jar]=". $JOB_SPEC_DIR/ lentic/"
     [lentic_jar_dir]='build/libs'
     [github_jobmgmt_dura_sec]=30  # for setting up the job, cleanup tasks etc.
     [total_dura_tolerance_sec]=30 # tolerance for e.g. rounding errors.
     [hotfix_timeout]='30s'
     )
-  [ -d job ] || ln --symbolic --target-directory=. -- ../job || return $?
-  source -- job/job.rc || return $?$(
+  [ -d "$JOB_SPEC_DIR" ] || ln --symbolic --no-target-directory \
+    -- ../job "$JOB_SPEC_DIR" || return $?
+  source -- "$JOB_SPEC_DIR"/job.rc || return $?$(
     echo "E: Failed to read job description." >&2)
 
   local -A VARI=()
@@ -104,7 +106,8 @@ function build_generate_matrix () {
   EQLN_ADD_KEY_PREFIX='job_' eqlines_dump_dict JOB >&6 || return $?
 
   V='variations.ndjson'
-  [ ! -s "job/$V" ] || cat -- "job/$V" >"tmp.$V" || return $?
+  K="$JOB_SPEC_DIR/$V"
+  [ ! -s "$K" ] || cat -- "$K" >"tmp.$V" || return $?
   V="tmp.$V"
   V="$( [ -s "$V" ] && grep -Pe '\S' -- "$V" )"
   [ -n "$V" ] || V='""'
@@ -218,7 +221,7 @@ function build_apply_hotfixes__phase () {
   [ -z "$PHASE" ] || FIX=".$PHASE"
   local SCAN=(
     find
-    job/hotfixes/
+    "$JOB_SPEC_DIR"/hotfixes/
     -type f
     '(' -false
       -o -name "*$FIX.sed"
@@ -411,7 +414,7 @@ function build_grab () {
   mkdir --parents -- "$JAR_UNP"
   vdo nice_ls -- ${JOB[grab_ls_before_jar]} || true
   vdo build_jar_add_extra_files lentic || return $?
-  vdo build_jar_add_extra_files job || return $?
+  vdo build_jar_add_extra_files "$JOB_SPEC_DIR" || return $?
 
   local JAR_DIR="lentic/${JOB[lentic_jar_dir]}"
   local JAR_LIST='tmp.jars.txt'
@@ -424,7 +427,7 @@ function build_grab () {
     return 4
   fi
   local ITEM= OPT=
-  for ITEM in job/jar_filter{/[0-9]*,}.{sed,sh}; do
+  for ITEM in "$JOB_SPEC_DIR"/jar_filter{/[0-9]*,}.{sed,sh}; do
     [ -f "$ITEM" ] || continue
     build_run_patcher "$ITEM" "$JAR_LIST" || return $?
   done
