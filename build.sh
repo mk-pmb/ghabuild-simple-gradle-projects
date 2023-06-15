@@ -130,7 +130,7 @@ function build_generate_matrix () {
   build_predict_eta >&6 || return $?
 
   nl -ba -- "$GITHUB_OUTPUT" || return $?
-  echo "Building $N_VARI variations." \
+  echo "Building $N_VARI variation(s)." \
     "This will probably finish before ${MEM[eta_hr]}." >&7
 }
 
