@@ -208,6 +208,8 @@ function build_run_patcher () {
 
 
 function build_apply_hotfixes () {
+  vdo git_in_lentic log --oneline -n 20 \
+    | ghstep_dump_file 'git history before hotfixes' text || return $?
   build_apply_hotfixes__phase early || return $?
   build_apply_hotfixes__phase fix || return $?
   build_apply_hotfixes__phase late || return $?
