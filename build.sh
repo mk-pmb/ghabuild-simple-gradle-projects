@@ -404,6 +404,7 @@ function build_gradle () {
   # ^-- Some repos don't have +x. Maybe their maintainers use Windows.
 
   vdo ./gradlew clean "${GW_OPT[@]}" || true
+  vdo rm -r -- .gradle .idea build || true
   local GR_LOG='../tmp.gradlew.log'
   VDO_TEE="$GR_LOG" vdo ./gradlew build "${GW_OPT[@]}" && return 0
   local GR_RV=$?
