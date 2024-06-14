@@ -1,0 +1,8 @@
+# -*- coding: utf-8, tab-width: 2 -*-
+
+JOB[estimated_build_duration_per_variation]='7–10 minutes'
+JOB[max_build_duration_sec_per_variation]=$(( 10 * 60 ))
+JOB[lentic_url]='https://github.com/LambdAurora/LambdaBetterGrass.git'
+JOB[lentic_ref]='1.20'
+JOB[lentic_license_sha1s]='ad78d2f72bf65b73d4280c37d34735d5ee95b01b *LICENSE'
+JOB[jar_add_lentic_files]='LICENSE -> LICENSE.txt'
