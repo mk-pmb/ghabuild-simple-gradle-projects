@@ -14,7 +14,7 @@ jobs:
         steps:
             # I wish the next few lines would be something simple like
             #
-            # - uses:   actions/checkout@v3
+            # - uses:   actions/checkout@v4
             #   with:
             #       repo: '${{ github.wfcalled_repo }}
             #       ref:  '${{ github.wfcalled_ref }}
@@ -32,7 +32,7 @@ jobs:
             # do all our stuff in there.
 
           - name: 'Clone the job description repo'
-            uses: actions/checkout@v3
+            uses: actions/checkout@v4
             with:
                 path: job  # see above for why
 
@@ -121,7 +121,7 @@ jobs:
                 WF_CLONE: '${{ needs.prep.outputs.WF_CLONE }}'
 
           - name: 'Clone the job description repo'
-            uses: actions/checkout@v3
+            uses: actions/checkout@v4
             with:
                 path: job
 
@@ -142,14 +142,14 @@ jobs:
 
           - name: 'Set up JDK'
             if: '${{ steps.v.outputs.java_ver }}'
-            uses: actions/setup-java@v3
+            uses: actions/setup-java@v4
             with:
                 distribution: 'temurin'
                 java-version: '${{ steps.v.outputs.java_ver }}'
 
           - name: 'Set up gradle'
             if: '${{ steps.v.outputs.java_ver }}'
-            uses: gradle/gradle-build-action@v2
+            uses: gradle/gradle-build-action@v3
             with:
                 generate-job-summary:
                     '${{ !!steps.v.outputs.gradle_default_summary }}'
@@ -168,7 +168,7 @@ jobs:
 
           - name: 'Upload JAR file as artifact'
             if: '${{ steps.g.outputs.artifact }}'
-            uses: actions/upload-artifact@v3
+            uses: actions/upload-artifact@v4
             with:
                 name: '${{ steps.g.outputs.artifact }}'
                 path: b/jar-unpacked
@@ -178,7 +178,7 @@ jobs:
           - name: 'Upload debug snapshot of ALL the lentic files'
             if: "${{ steps.v.outputs.job_upload_lentic_snapshot
                     && startsWith(github.ref, 'refs/heads/debug-') }}"
-            uses: actions/upload-artifact@v3
+            uses: actions/upload-artifact@v4
             with:
                 name: '${{ steps.v.outputs.job_upload_lentic_snapshot }}'
                 path: b/lentic
