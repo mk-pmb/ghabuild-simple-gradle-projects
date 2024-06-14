@@ -169,7 +169,7 @@ function build_decode_variation () {
   echo "$VARI_JSON" >tmp.variation.json || return $?
 
   VARI=()
-  VARI[java_ver]="${JOB[java_ver]:-17}"
+  VARI[java_ver]="${JOB[java_ver]:-21}"
 
   eqlines_dump_dict VARI >&6 || return $?
   local REBASH="$(dump_bash_dict_pairs VARI)"
