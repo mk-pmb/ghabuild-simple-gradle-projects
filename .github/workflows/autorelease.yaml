@@ -15,7 +15,7 @@ jobs:
             contents: write
         steps:
 
-          - uses: actions/download-artifact@v3
+          - uses: actions/download-artifact@v4
             name: 'Download ALL the artifacts!'
             with:
                 path: artifacts
@@ -39,7 +39,7 @@ jobs:
 
           - name: 'Publish JAR file into release'
             id: rls
-            uses: ncipollo/release-action@v1
+            uses: ncipollo/release-action@main
             with:
                 allowUpdates: True
                 artifactErrorsFailBuild: True
