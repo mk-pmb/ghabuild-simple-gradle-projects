@@ -3,6 +3,14 @@
 /lentic
 
 
+
+# Directory names intended for worktrees of other branches:
+/*.wt
+/t.*
+/W.*
+
+
+
 # Auto-generated files:
 /tmp.*
 
