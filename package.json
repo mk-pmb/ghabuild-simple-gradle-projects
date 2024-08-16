@@ -1,0 +1,22 @@
+{ "name": "ghabuild-various-minecraft-mods-240801-pmb",
+  "version": "0.0.1",
+  "description": "Build various Minecraft mods on GitHub CI.",
+  "keywords": [],
+
+  "author": "M.K. (https://github.com/mk-pmb)",
+  "homepage": "https://github.com/mk-pmb/ghabuild-simple-gradle-projects/tree/various-minecraft-mods#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mk-pmb/ghabuild-simple-gradle-projects.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mk-pmb/ghabuild-simple-gradle-projects/issues"
+  },
+  "contributors": [],
+
+  "private": true, "license": "ISC",
+
+
+
+  "engines": { "npm": ">=7.0.0", "node": ">=16.0.0" }
+}
