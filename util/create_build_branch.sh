@@ -27,7 +27,7 @@ function create_build_branch () {
     dfjobval max_build_duration_sec_per_variation '$(( 10 * 60 ))'
     dfjobval lentic_url
     dfjobval lentic_ref
-    dfjobval lentic_license_sha1s
+    dfjobval lentic_license_sha1s '0000…0000 *LICENSE'
     dfjobval jar_add_lentic_files 'LICENSE -> LICENSE.txt'
     <<<"${JOB[+]}" sed -nre 's~$~\x27~;s~^(\S+)\s+~JOB[\1]=\x27~p'
   ) >job.rc || return $?
