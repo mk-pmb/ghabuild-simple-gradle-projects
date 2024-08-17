@@ -66,11 +66,21 @@ function build_git_basecfg () {
 
 
 function build_clone_lentic_repo () {
+  local CLONE_CMD=(
+    git
+    clone
+    --single-branch
+    --branch="${JOB[lentic_ref]}"
+    -- "${JOB[lentic_url]}"
+    lentic
+    )
+  printf -- '`%s` &rarr; `%s`\n\n' "${FUNCNAME#*_}" "${CLONE_CMD[*]}" \
+    >>"$GITHUB_STEP_SUMMARY" || return $?
+
   if [ -f lentic/.git/config ]; then
     echo 'Skip cloning: Repo lentic already exists.'
   else
-    vdo git clone --single-branch --branch="${JOB[lentic_ref]}" \
-      -- "${JOB[lentic_url]}" lentic || return $?
+    vdo "${CLONE_CMD[@]}" || return $?
   fi
 
   local V="${JOB[lentic_rebranch]}"
