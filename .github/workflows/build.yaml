@@ -149,10 +149,11 @@ jobs:
 
           - name: 'Set up gradle'
             if: '${{ steps.v.outputs.java_ver }}'
-            uses: gradle/gradle-build-action@v3
+            uses: gradle/actions/setup-gradle@v4
             with:
-                generate-job-summary:
-                    '${{ !!steps.v.outputs.gradle_default_summary }}'
+                add-job-summary: never
+                # ^-- Adding the job summary would too easily exceed the
+                #     GITHUB_STEP_SUMMARY upload limit of 1 MiB.
 
           - name: 'Build the project — this usually takes ${{
                 needs.prep.outputs.dura }}'
