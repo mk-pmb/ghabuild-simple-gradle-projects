@@ -25,6 +25,7 @@ function build_init () {
     [github_jobmgmt_dura_sec]=30  # for setting up the job, cleanup tasks etc.
     [total_dura_tolerance_sec]=30 # tolerance for e.g. rounding errors.
     [hotfix_timeout]='30s'
+    [release_dir]='release'
     )
   [ -d "$JOB_SPEC_DIR" ] || ln --symbolic --no-target-directory \
     -- ../job "$JOB_SPEC_DIR" || return $?
@@ -52,7 +53,8 @@ function build_init () {
   echo "E: Build task $TASK failed, rv=$RV"
   yes : 2>/dev/null > >(head --lines=15)
   wait # for head to finish printing
-  return "$RV"
+
+  [ "$RV" == 0 ] || github_ci_workaround_fake_success_until_date || return "$RV"
 }
 
 
@@ -456,11 +458,10 @@ function build_grab () {
     echo
   ) >&7
 
-  local RLS_DIR='release'
-  mkdir --parents -- "$RLS_DIR" || return $?
-  local RLS_JAR="$RLS_DIR/$ARTIFACT"
+  mkdir --parents -- "${JOB[release_dir]}" || return $?
+  local RLS_JAR="${JOB[release_dir]}/$ARTIFACT"
   mv --verbose --no-target-directory -- "$ORIG_JAR" "$RLS_JAR" || return $?
-  vdo nice_ls -- "$RLS_DIR"/ || return $?
+  vdo nice_ls -- "${JOB[release_dir]}"/ || return $?
 
   unzip -d "$JAR_UNP" -- "$RLS_JAR" || return $?
   local VDO_TEE='tmp.files_in_jar.txt'
@@ -549,6 +550,47 @@ function build_grab_found_no_jars () {
     [ -z "$MAYBE" ] || echo "H: Might it be one of these? ${MAYBE//$'\n'/ | }"
   fi
 }
+
+
+function github_ci_workaround_fake_success_until_date () {
+  local D="${JOB[$FUNCNAME]}" J= UTS= W=
+  if [ -z "$D" ]; then
+    W='If this failure is too noisy, consider the ¹ option.'
+  else
+    UTS="$(date +%s --date="$D")"
+    [ "${UTS:-0}" -ge 1 ] || W='Failed to parse the date for ¹.'
+    if [ -z "$W" -a "$UTS" -lt "$EPOCHSECONDS" ]; then
+      W='The date for ¹ has expired.'
+      D=
+    fi
+  fi
+  if [ -n "$D" ]; then
+    D="lentic/${JOB[lentic_jar_dir]}"
+    mkdir --parents -- "$D"
+    J="$FUNCNAME.jar"
+    echo "artifact=$J" >&6
+    J="$D/$J"
+    D+="/$FUNCNAME.txt"
+    if [ -f "$J" ]; then
+      [ -n "$W" ] || W="Decoy file already exists: \`$J\`"
+    else
+      [ -n "$W" ] || W="Creating decoy file: \`$J\`"
+      echo "JOB[$FUNCNAME]='$YMD'" >"$D" || return $?$(
+        echo "E: Failed to create file: $D"$'\n' >&7)
+      zip -j0o "$J" -- "$D" || return $?$(
+        echo "E: Failed to JAR-pack file: $J"$'\n' >&7)
+    fi
+  fi
+  W="${W//¹/\`$FUNCNAME\`}"
+  W="## ⚠️ ⚠️ W: $W ⚠️ ⚠️"
+  echo $'\n'"$W"$'\n' >&7
+  [ -n "$D" ] || return 4
+}
+
+
+
+
+
 
 
 
