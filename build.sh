@@ -217,6 +217,20 @@ function git_in_lentic () {
 
 
 function build_run_patcher () {
+  local HOTFIX_LOG_FILE='tmp.hotfix.log'
+  build_run_patcher__fallible "$@" |& tee -- "$HOTFIX_LOG_FILE"
+  local RVS="${PIPESTATUS[*]}"
+  if [ "$RVS" == '0 0' ]; then
+    rm -- "$HOTFIX_LOG_FILE"
+    return 0
+  fi
+  echo E: "Patch \`$1\` failed!" || return $?
+  let RVS="${RVS// /+}"
+  return "$RVS"
+}
+
+
+function build_run_patcher__fallible () {
   local FIX="$1"; shift
   local OPT=
   case "$FIX" in
@@ -255,6 +269,9 @@ function build_apply_hotfixes__fallible () {
     build_ensure_lentic_repo_state_before_hotfixes || return $?
   fi
 
+  local HOTFIX_BASEDIR="$JOB_SPEC_DIR"/hotfixes
+  mkdir --parents -- "$HOTFIX_BASEDIR"
+
   vdo git_in_lentic log --oneline -n 20 \
     | ghstep_dump_file 'git history before hotfixes' text || return $?
   build_apply_hotfixes__phase early || return $?
@@ -278,11 +295,19 @@ function build_apply_hotfixes__fallible () {
 
 function build_apply_hotfixes__phase () {
   local PHASE="$1"
+
+  local VAL="${JOB[hotfix_bash_$PHASE]}" AUX=
+  if [ -n "$VAL" ]; then
+    AUX="$HOTFIX_BASEDIR/from_job_rc.$PHASE.sh"
+    echo $'#!/bin/bash\n'"$VAL" >"$AUX" || return $?
+    chmod a+x -- "$AUX" || return $?
+  fi
+
   local FIX=
   [ -z "$PHASE" ] || FIX=".$PHASE"
   local SCAN=(
     find
-    "$JOB_SPEC_DIR"/hotfixes/
+    "$HOTFIX_BASEDIR"/
     -type f
     '(' -false
       -o -name "*$FIX.sed"
