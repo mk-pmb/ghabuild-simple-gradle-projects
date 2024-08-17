@@ -75,7 +75,7 @@ function build_clone_lentic_repo () {
     lentic
     )
   printf -- '`%s` &rarr; `%s`\n\n' "${FUNCNAME#*_}" "${CLONE_CMD[*]}" \
-    >>"$GITHUB_STEP_SUMMARY" || return $?
+    >&7 || return $?
 
   if [ -f lentic/.git/config ]; then
     echo 'Skip cloning: Repo lentic already exists.'
@@ -421,8 +421,7 @@ function build_gradle () {
 
   local GR_HL='../tmp.gradlew.hl.log'
   "$SELFPATH"/lib/gradle_log_highlights.sed "$GR_LOG" | tee -- "$GR_HL"
-  fmt_markdown_details_file "Gradle failed, rv=$GR_RV" text "$GR_HL" \
-    >>"$GITHUB_STEP_SUMMARY"
+  fmt_markdown_details_file "Gradle failed, rv=$GR_RV" text "$GR_HL" >&7
 
   return "$GR_RV"
 }
