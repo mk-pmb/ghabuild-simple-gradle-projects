@@ -35,11 +35,14 @@ function build_init () {
   # local -p
 
   local BUILD_ERR_LOG="tmp.build_step_errors.$$.log"
+  exec 9> >(exec tee -- "$BUILD_ERR_LOG" >&2)
+  local BUILD_ERR_LOG_TEE_PID=$!
   local TASK="$1"; shift
-  build_"$TASK" "$@" 2> >(tee -- "$BUILD_ERR_LOG" >&2)
+  build_"$TASK" "$@" 2&>9
   local RV=$?
+  9<&-
   sleep 0.5s  # Give error log tee some time to settle
-  killall -HUP tee 2>/dev/null || true
+  kill -HUP "$BUILD_ERR_LOG_TEE_PID" 2>/dev/null || true
   [ "$RV" == 0 ] && return 0
 
   ghstep_dump_file 'Build step error log' text "$BUILD_ERR_LOG" || return $?
