@@ -56,10 +56,11 @@ function build_init () {
   [ "$RV" == 0 ] && return 0
 
   ghstep_dump_file 'Build step error log' text "$BUILD_ERR_LOG" || return $?
-  echo :
+  [ -z "$CI" ] || echo :
   echo "E: Build task $TASK failed, rv=$RV"
-  yes : 2>/dev/null > >(head --lines=15)
-  wait # for head to finish printing
+
+  # On GitHub, print 15 colon lines to make a visible big gap in the raw log:
+  [ -z "$CI" ] || printf '%15s' '' | sed -re 's~ ~:\n~g'
 
   [ "$RV" == 0 ] || github_ci_workaround_fake_success_until_date || return "$RV"
 }
