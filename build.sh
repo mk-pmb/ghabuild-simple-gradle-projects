@@ -19,6 +19,10 @@ function build_init () {
     echo E: "Failed to create build error log file: $BUILD_ERR_LOG" >&2)
   exec 2> >(exec tee -- "$BUILD_ERR_LOG" >&2)
 
+  local GHCIU_FUNCS_DIR="$(ghciu --print-funcs-dir)"
+  [ -d "$GHCIU_FUNCS_DIR" ] || return 4$(
+    echo E: "Failed to detect GHCIU_FUNCS_DIR" >&2)
+  source -- "$GHCIU_FUNCS_DIR"/vdo.sh --lib || return $?
   source -- lib/eqlines.sh --lib || return $?
   source -- lib/kisi.sh --lib || return $?
 
@@ -219,7 +223,8 @@ function build_run_patcher () {
   esac
   local WRAPS=(
     vdo
-    timeout ${JOB[hotfix_timeout]}
+    --timeout="${JOB[hotfix_timeout]}"
+    # strace-fyxo tmp.patch.strace.log
     )
   if [ -x "$FIX" ]; then
     "${WRAPS[@]}" ./"$FIX" $OPT -- "$@"
@@ -255,7 +260,7 @@ function build_apply_hotfixes__fallible () {
   build_apply_hotfixes__phase late || return $?
 
   local MODIF='tmp.hotfix.modif_files.txt'
-  VDO_TEE="$MODIF" vdo git_in_lentic status --short
+  VDO_TEE_LOG="$MODIF" vdo git_in_lentic status --short
   ghstep_dump_file 'Hotfixed files' text "$MODIF" || return $?
 
   if [ ! -s "$MODIF" ]; then
@@ -446,7 +451,7 @@ function build_gradle () {
   vdo ./gradlew clean "${GW_OPT[@]}" || true
   vdo rm -r -- .gradle .idea build || true
   local GR_LOG='../tmp.gradlew.log'
-  VDO_TEE="$GR_LOG" vdo ./gradlew build "${GW_OPT[@]}" && return 0
+  VDO_TEE_LOG="$GR_LOG" vdo ./gradlew build "${GW_OPT[@]}" && return 0
   local GR_RV=$?
 
   local GR_HL='../tmp.gradlew.hl.log'
@@ -492,9 +497,9 @@ function build_grab () {
   vdo nice_ls -- "${JOB[release_dir]}"/ || return $?
 
   unzip -d "$JAR_UNP" -- "$RLS_JAR" || return $?
-  local VDO_TEE='tmp.files_in_jar.txt'
+  local VDO_TEE_LOG='tmp.files_in_jar.txt'
   vdo find_vsort "$JAR_UNP" || return $?
-  ghstep_dump_file 'Files in the JAR' text "$VDO_TEE" || return $?
+  ghstep_dump_file 'Files in the JAR' text "$VDO_TEE_LOG" || return $?
 }
 
 

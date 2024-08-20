@@ -2,17 +2,6 @@
 # -*- coding: utf-8, tab-width: 2 -*-
 
 
-function vdo () {
-  echo "=== run: $* ==="
-  SECONDS=0
-  "$@" |& tee -- $VDO_TEE
-  local RV="${PIPESTATUS[*]}"
-  let RV="${RV// /+}"
-  echo "=== done: $*, rv=$RV, took $SECONDS sec ==="
-  return $RV
-}
-
-
 function fmt_markdown_details_file () {
   local TITLE="$1"; shift
   local FMT="$1"; shift

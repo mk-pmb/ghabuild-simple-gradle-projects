@@ -72,6 +72,8 @@ jobs:
                       /\a/!p
                     }
 
+          - uses: mk-pmb/github-ci-util-2405-pmb/act/install@experimental
+
           - run: './B git_basecfg'
 
           - run: './B generate_matrix'
@@ -124,6 +126,8 @@ jobs:
             uses: actions/checkout@v4
             with:
                 path: job
+
+          - uses: mk-pmb/github-ci-util-2405-pmb/act/install@experimental
 
           - run: './B git_basecfg'
 
