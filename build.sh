@@ -93,6 +93,11 @@ function build_clone_lentic_repo () {
     vdo "${CLONE_CMD[@]}" || return $?
   fi
 
+  build_ensure_lentic_repo_state_before_hotfixes || return $?
+}
+
+
+function build_ensure_lentic_repo_state_before_hotfixes () {
   local V="${JOB[lentic_rebranch]}"
   if [ -z "$V" ]; then
     true
@@ -103,7 +108,8 @@ function build_clone_lentic_repo () {
   fi
 
   V="${JOB[lentic_reset]}"
-  [ -z "$V" ] || vdo git_in_lentic reset --hard "$V" || return $?
+  [ -n "$V" ] || V="origin/${JOB[lentic_ref]}"
+  vdo git_in_lentic reset --hard "$V" || return $?
 }
 
 
@@ -228,6 +234,20 @@ function build_run_patcher () {
 
 
 function build_apply_hotfixes () {
+  build_apply_hotfixes__fallible "$@"
+  local RV=$?
+  [ "$RV" == 0 ] || echo E: $FUNCNAME: >&2 "Hotfixes failed, rv=$RV." \
+    "To debug locally, run: ./build.sh apply_hotfixes --reset-lentic"
+  return "$RV"
+}
+
+
+function build_apply_hotfixes__fallible () {
+  if [ "$1" == --reset-lentic ]; then
+    shift
+    build_ensure_lentic_repo_state_before_hotfixes || return $?
+  fi
+
   vdo git_in_lentic log --oneline -n 20 \
     | ghstep_dump_file 'git history before hotfixes' text || return $?
   build_apply_hotfixes__phase early || return $?
