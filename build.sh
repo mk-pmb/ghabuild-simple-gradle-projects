@@ -12,6 +12,12 @@ function build_init () {
     echo E: "GRADLE_BUILD_HELPER_MAIN_PID = '$GRADLE_BUILD_HELPER_MAIN_PID'" >&2
     export GRADLE_BUILD_HELPER_MAIN_PID=$BASHPID
   fi
+  local BUILD_ERR_LOG="tmp.build_step_errors.log"
+  # mv --verbose --no-target-directory -- "$BUILD_ERR_LOG" \
+  #   "tmp.bak-$EPOCHSECONDS-$$.${BUILD_ERR_LOG#tmp.}"
+  >"$BUILD_ERR_LOG" || return $?$(
+    echo E: "Failed to create build error log file: $BUILD_ERR_LOG" >&2)
+  exec 2> >(exec tee -- "$BUILD_ERR_LOG" >&2)
 
   source -- lib/eqlines.sh --lib || return $?
   source -- lib/kisi.sh --lib || return $?
@@ -44,15 +50,9 @@ function build_init () {
     $(cat -- tmp.variation.dict) )" || return $?
   # local -p
 
-  local BUILD_ERR_LOG="tmp.build_step_errors.$$.log"
-  exec 9> >(exec tee -- "$BUILD_ERR_LOG" >&2)
-  local BUILD_ERR_LOG_TEE_PID=$!
   local TASK="$1"; shift
-  build_"$TASK" "$@" 2&>9
+  build_"$TASK" "$@"
   local RV=$?
-  9<&-
-  sleep 0.5s  # Give error log tee some time to settle
-  kill -HUP "$BUILD_ERR_LOG_TEE_PID" 2>/dev/null || true
   [ "$RV" == 0 ] && return 0
 
   ghstep_dump_file 'Build step error log' text "$BUILD_ERR_LOG" || return $?
