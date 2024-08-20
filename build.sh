@@ -6,6 +6,13 @@ function build_init () {
   export LANG{,UAGE}=en_US.UTF-8  # make error messages search engine-friendly
   local SELFPATH="$(readlink -m -- "$BASH_SOURCE"/..)"
   cd -- "$SELFPATH" || return $?
+  if [ "$1" == --bypass-mutex ]; then shift; "$@"; return $?; fi
+
+  if [ -n "$GRADLE_BUILD_HELPER_MAIN_PID" ]; then
+    echo E: "GRADLE_BUILD_HELPER_MAIN_PID = '$GRADLE_BUILD_HELPER_MAIN_PID'" >&2
+    export GRADLE_BUILD_HELPER_MAIN_PID=$BASHPID
+  fi
+
   source -- lib/eqlines.sh --lib || return $?
   source -- lib/kisi.sh --lib || return $?
 
