@@ -121,7 +121,7 @@ function build_ensure_lentic_repo_state_before_hotfixes () {
 function build_verify_license () {
   local LIC="${JOB[lentic_license_sha1s]}"
   [[ "$LIC" == *[0-9a-fA-F]* ]] || return 3$(
-    echo 'E: No configured for license check.' \
+    echo 'E: No checksum(s) configured for license check.' \
       'Skipping this step is not currently supported.' >&2)
   local TF='tmp.license_files.sha'
   <<<"$LIC" unindent_unblank >"$TF" || return $?
