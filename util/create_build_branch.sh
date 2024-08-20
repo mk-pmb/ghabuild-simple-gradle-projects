@@ -4,10 +4,11 @@
 
 function create_build_branch () {
   export LANG{,UAGE}=en_US.UTF-8  # make error messages search engine-friendly
-  local SELFPATH="$(readlink -m -- "$BASH_SOURCE"/..)"
-  cd -- "$SELFPATH"/.. || return $?
+  local REPO_DIR="$(readlink -m -- "$BASH_SOURCE"/../..)"
+  cd -- "$REPO_DIR" || return $?
 
   local -A MEM=() JOB=()
+  MEM[worktree_subdir_prefix]='W.'
   local CLUE=
   for CLUE in "$@"; do
     interpret_clue || return 0
@@ -19,11 +20,29 @@ function create_build_branch () {
 
   check_repo_clean || return $?
 
-  git checkout -b "${MEM[branch]}" || return $?
-  git reset --hard base-for-build-branches || return $?
-  generate_default_jobrc >job.rc || return $?
+  local WTSUF="${MEM[worktree_subdir_prefix]}"
+  local WTREE="${MEM[worktree_subdir]}"
+  [ -n "$WTREE" ] || WTREE="$WTSUF${MEM[gh_repo]}"
+  actually_create_worktree || return $?
+  cd -- "$REPO_DIR/$WTREE" || return $?$(
+    echo E: "Failed to chdir into the assumed-existing worktree: $WTREE" >&2)
   git add job.rc || return $?
   git diff HEAD || return $?
+
+  echo "# Success! To work further: cd $WTREE"
+  echo "# to rename it: git worktree move $WTREE ${WTSUF}some-other-name"
+}
+
+
+function actually_create_worktree () {
+  git worktree add "$WTREE" || return $?$(
+    echo E: "Failed to create the worktree: $WTREE" >&2)
+  cd -- "$REPO_DIR/$WTREE" || return $?$(
+    echo E: "Failed to chdir into the new worktree: $WTREE" >&2)
+  git branch -m "$WTREE" "${MEM[branch]}" || return $?$(
+    echo E: "Failed to rename the worktree branch!" >&2)
+  git reset --hard base-for-build-branches || return $?
+  generate_default_jobrc >job.rc || return $?
 }
 
 
@@ -53,6 +72,7 @@ function dfjobval () {
 
 
 function interpret_clue () {
+  interpret_clue__worktree_subdir "$CLUE" && return 0
   case "$CLUE" in
     https://github.com/* ) interpret_clue_github || return $?;;
     fab ) build_subdir fabric || return $?;;
@@ -91,6 +111,17 @@ function interpret_clue_github () {
   local U_R="${MEM[gh_user]}/${MEM[gh_repo]}"
   JOB[lentic_url]="$GH_BASE_URL$U_R.git"
   MEM[branch]="build-gh/${U_R,,}"
+}
+
+
+function interpret_clue__worktree_subdir () {
+  local WT="$1"
+  [[ "$WT" == "${MEM[worktree_subdir_prefix]}"* ]] || return 1
+  WT="${WT%/}"
+  case "$WT" in
+    *[^A-Za-z0-9-.]* ) return 1
+  esac
+  MEM[worktree_subdir]="$WT"
 }
 
 
