@@ -370,6 +370,7 @@ function build_detect_lentic_meta () {
       );;
     minecraft_version ) SIMP=(
       '!minecraft_version=' lentic/gradle.properties
+      '<ini_sect[versions]>minecraft=' lentic/gradle/libs.versions.toml
       '!minecraftVersion=' lentic/gradle/libs.versions.toml
       '!valminecraftVersion=' lentic/{*-,}fabric/build.gradle.kts
       );;
@@ -400,16 +401,40 @@ function build_detect_lentic_meta () {
 
 function build_detect_lentic_meta__simple () {
   local BASE_SED='s~\s+|\x22|\x27~~g'  # <-- \s especially because of \r$
-  local FILE= RX=
-  for FILE in "$@"; do
-    if [ "${FILE:0:1}" == '!' ]; then
-      RX="$BASE_SED;s!^${FILE:1}!!p"
-      continue
-    fi
+  local ARG= RX=
+  while [ "$#" -ge 1 ]; do
+    ARG="$1"; shift
+    case "$ARG" in
+      '!'* )
+        RX="$BASE_SED;s!^${ARG:1}!!p"
+        continue;;
+      '<ini_sect['*']>'* )
+        build_detect_lentic_meta__simple__ini_sect "$ARG"
+        continue;;
+    esac
     [ -n "$RX" ] || return 3$(
-      echo "E: $FUNCNAME: No regexp for file '$FILE'" >&2)
-    sed -nrf <(echo "$RX") -- "$FILE" 2>/dev/null
+      echo "E: $FUNCNAME: No regexp for file '$ARG'" >&2)
+    sed -nrf <(echo "$RX") -- "$ARG" 2>/dev/null
   done
+}
+
+
+function build_detect_lentic_meta__simple__ini_sect () {
+  RX="$1"
+  RX="${RX#*'['}"
+  local SECT="${RX%%']>'*}"
+  RX="${RX#*']>'}"
+  RX='
+    : skip
+      /^\[('"$SECT"')\]\r?$/{b copy}
+      n
+    b skip
+    : copy
+      n
+      /^\[/b skip
+      '"$BASE_SED;s!^$RX!!p"'
+    b copy
+    '
 }
 
 
