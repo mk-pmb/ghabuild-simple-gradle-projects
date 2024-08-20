@@ -21,17 +21,7 @@ function create_build_branch () {
 
   git checkout -b "${MEM[branch]}" || return $?
   git reset --hard base-for-build-branches || return $?
-  ( echo '# -*- coding: utf-8, tab-width: 2 -*-'
-    echo
-    dfjobval estimated_build_duration_per_variation '7–10 minutes'
-    dfjobval max_build_duration_sec_per_variation '$(( 10 * 60 ))'
-    dfjobval github_ci_workaround_fake_success_until_date '1970-01-01'
-    dfjobval lentic_url
-    dfjobval lentic_ref
-    dfjobval lentic_license_sha1s '0000…0000 *LICENSE'
-    dfjobval jar_add_lentic_files 'LICENSE -> LICENSE.txt'
-    <<<"${JOB[+]}" sed -nre 's~$~\x27~;s~^(\S+)\s+~JOB[\1]=\x27~p'
-  ) >job.rc || return $?
+  generate_default_jobrc >job.rc || return $?
   git add job.rc || return $?
   git diff HEAD || return $?
 }
@@ -102,6 +92,22 @@ function interpret_clue_github () {
   JOB[lentic_url]="$GH_BASE_URL$U_R.git"
   MEM[branch]="build-gh/${U_R,,}"
 }
+
+
+function generate_default_jobrc () {
+  echo '# -*- coding: utf-8, tab-width: 2 -*-'
+  echo
+  dfjobval estimated_build_duration_per_variation '7–10 minutes'
+  dfjobval max_build_duration_sec_per_variation '$(( 10 * 60 ))'
+  dfjobval github_ci_workaround_fake_success_until_date '1970-01-01'
+  dfjobval lentic_url
+  dfjobval lentic_ref
+  dfjobval lentic_license_sha1s '0000…0000 *LICENSE'
+  dfjobval jar_add_lentic_files 'LICENSE -> LICENSE.txt'
+  <<<"${JOB[+]}" sed -nre 's~$~\x27~;s~^(\S+)\s+~JOB[\1]=\x27~p'
+}
+
+
 
 
 
