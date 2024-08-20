@@ -222,20 +222,21 @@ function build_run_patcher () {
   case "$FIX" in
     *.sed ) OPT='-i';;
   esac
-  local WRAPS=(
+  local PATCH_CMD=(
     vdo
     --timeout="${JOB[hotfix_timeout]}"
     # strace-fyxo tmp.patch.strace.log
     )
   if [ -x "$FIX" ]; then
-    "${WRAPS[@]}" ./"$FIX" $OPT -- "$@"
-    return $?
+    PATCH_CMD+=( ./"$FIX" $OPT -- )
+  else
+    case "$FIX" in
+      *.sed ) PATCH_CMD=( sed -rf "$FIX" -$OPT -- );;
+      *.sh ) PATCH_CMD=( bash -- "$FIX" );;
+      * ) echo "E: unsupported filename extension: $FIX" >&2; return 3;;
+    esac
   fi
-  case "$FIX" in
-    *.sed ) "${WRAPS[@]}" sed -rf "$FIX" -$OPT -- "$@" || return $?;;
-    *.sh ) "${WRAPS[@]}" bash -- "$FIX" "$@" || return $?;;
-    * ) echo "E: unsupported filename extension: $FIX" >&2; return 3;;
-  esac
+  "${PATCH_CMD[@]}" "$@" || return $?
 }
 
 
