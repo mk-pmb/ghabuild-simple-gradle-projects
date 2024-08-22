@@ -1,0 +1,14 @@
+# -*- coding: utf-8, tab-width: 2 -*-
+
+JOB[estimated_build_duration_per_variation]='7–10 minutes'
+JOB[max_build_duration_sec_per_variation]=$(( 10 * 60 ))
+JOB[github_ci_workaround_fake_success_until_date]='2024-08-30'
+JOB[lentic_url]='https://github.com/EngineHub/WorldEditCUI.git'
+
+JOB[lentic_url]='https://github.com/mk-pmb/minecraft-mod-worldedit.git'
+JOB[lentic_ref]='experimental'
+
+JOB[hotfix_bash_early]=''
+
+JOB[lentic_license_sha1s]='5fefeea41e8cadb5df4b2b49ce1103bc79f89e85 *LICENSE.txt'
+JOB[jar_add_lentic_files]='LICENSE.txt -> LICENSE.multiple.txt'
