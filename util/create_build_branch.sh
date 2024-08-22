@@ -5,19 +5,28 @@
 function create_build_branch () {
   export LANG{,UAGE}=en_US.UTF-8  # make error messages search engine-friendly
   local REPO_DIR="$(readlink -m -- "$BASH_SOURCE"/../..)"
-  cd -- "$REPO_DIR" || return $?
 
   local -A MEM=() JOB=()
   MEM[worktree_subdir_prefix]='W.'
+  MEM[license_hashes_cache]='tmp.licenses.sha'
+
   local CLUE=
   for CLUE in "$@"; do
     interpret_clue || return 0
   done
+
+  if [ "$#" == 0 -a -f job.rc ]; then
+    source -- job.rc || return 4$(
+      echo E: "Failed to source assumed-existing job.rc!" >&2)
+    new_worktree_welcome
+    return $?
+  fi
+
   [ -n "${MEM[branch]}" ] || return 4$(
     echo "E: Failed to guess a branch name from the clues given." >&2)
   [ -n "${JOB[lentic_url]}" ] || return 4$(
     echo "E: Failed to guess the lentic_url." >&2)
-
+  cd -- "$REPO_DIR" || return $?
   check_repo_clean || return $?
 
   local WTSUF="${MEM[worktree_subdir_prefix]}"
@@ -26,11 +35,17 @@ function create_build_branch () {
   actually_create_worktree || return $?
   cd -- "$REPO_DIR/$WTREE" || return $?$(
     echo E: "Failed to chdir into the assumed-existing worktree: $WTREE" >&2)
-  git add job.rc || return $?
-  git diff HEAD || return $?
-
+  new_worktree_welcome || return $?
   echo "# Success! To work further: cd $WTREE"
   echo "# to rename it: git worktree move $WTREE ${WTSUF}some-other-name"
+}
+
+
+function new_worktree_welcome () {
+  download_potential_license_files || return $?
+  adjust_licenses_in_jobrc || return $?
+  git add job.rc || return $?
+  git diff HEAD || return $?
 }
 
 
@@ -136,6 +151,78 @@ function generate_default_jobrc () {
   dfjobval lentic_license_sha1s '0000…0000 *LICENSE'
   dfjobval jar_add_lentic_files 'LICENSE -> LICENSE.txt'
   <<<"${JOB[+]}" sed -nre 's~$~\x27~;s~^(\S+)\s+~JOB[\1]=\x27~p'
+}
+
+
+function download_lentic_file () {
+  local SUB_FILE="$1"; shift
+  local URL="${JOB[lentic_url]%.git}/raw/${JOB[lentic_ref]}/$SUB_FILE"
+  local SAVE_AS="${SUB_FILE##*/}"
+  cache-file-wget "$SAVE_AS" "$@" "$URL" || return $?
+}
+
+
+function download_potential_license_files () {
+  local CACHE="${MEM[license_hashes_cache]}"
+  if [ -s "$CACHE" ]; then
+    echo D: $FUNCNAME: "Skip: License checksum cache file is not empty: $CACHE"
+    return 0
+  fi
+  local BFNS=(
+    License
+    Copying
+    )
+  local FEXTS=(
+    ''
+    .txt
+    .md
+    )
+  local BFN= FEXT= SRC=
+  local FOUND=()
+  echo -n "Trying to auto-detect the license file(s): "
+  for BFN in "${BFNS[@]}"; do
+    for BFN in "${BFN^^}" "$BFN" "${BFN,,}"; do
+      for FEXT in "${FEXTS[@]}"; do
+        SRC="$BFN$FEXT"
+        echo -n "'$SRC'?"
+        if download_lentic_file "$SRC" --quiet; then
+          echo -ne '\b\e[97;42m√\e[0m'
+          FOUND+=( "$SRC" )
+        else
+          echo -ne '\b\e[97;41m×\e[0m'
+          rm -- tmp.*."$SRC".part 2>/dev/null
+        fi
+        echo -n ' '
+      done
+    done
+  done
+  local N_FOUND="${#FOUND[@]}"
+  echo "Found $N_FOUND license files."
+  [ "$N_FOUND" -ge 1 ] || return 0
+  sha1sum --binary -- "${FOUND[@]}" >"$CACHE"
+}
+
+
+function adjust_licenses_in_jobrc () {
+  local CACHE="${MEM[license_hashes_cache]}"
+  local FIRST_LICENSE_FILE="$(sed -nre 's~^\S+ *\*?~~p;q' -- "$CACHE")"
+  [ -n "$FIRST_LICENSE_FILE" ] || return 4$(
+    echo E: $FUNCNAME: 'Cannot determine first license file!' >&2)
+  sed -zrf <(echo '
+    s~\r|\f~~g
+    s~(^|\n)(JOB\[jar_add_lentic_files\]=\x27|$\
+      )(\S+ -> |)(LICENSE\.)~\1\2\f<jarlic>\n\r -> \4~g
+    s~(^|\n)(JOB\[lentic_license_sha1s\]=\x27|$\
+      )[^\x27]*(\x27)~\1\2\f<shas>\n\r\3~g
+    ') -- job.rc | sed -re '/\f<shas>$/r /dev/fd/5' 5< <(sed -rf <(echo '
+      1{$!s~^~\n  ~}
+      2,${s~^~  ~;$s~$~\n  ~}
+      ') -- "$CACHE"
+    ) | sed -re '/\f<jarlic>$/a\'"$FIRST_LICENSE_FILE" \
+    | sed -zre 's~\f\S+\n~~g;s~\n\r~~g' >tmp.new.job.rc || return $?
+  [ -s tmp.new.job.rc ] || return $?$(echo E: $FUNCNAME: >&2 \
+    'Updated job.rc would be empty!' >&2)
+  mv --no-target-directory -- {tmp.new.,}job.rc || return $?
 }
 
 
