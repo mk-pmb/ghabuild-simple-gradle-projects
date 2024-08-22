@@ -12,6 +12,8 @@ jobs:
         name: 'Prepare build matrix'
         runs-on: ubuntu-latest
         steps:
+          - uses: mk-pmb/github-ci-util-2405-pmb/act/install@experimental
+
             # I wish the next few lines would be something simple like
             #
             # - uses:   actions/checkout@v4
@@ -72,8 +74,6 @@ jobs:
                       /\a/!p
                     }
 
-          - uses: mk-pmb/github-ci-util-2405-pmb/act/install@experimental
-
           - run: './B git_basecfg'
 
           - run: './B generate_matrix'
@@ -116,6 +116,9 @@ jobs:
             matrix:
                 variation: '${{ fromJSON(needs.prep.outputs.vari) }}'
 
+        env:
+                VARI_JSON: '${{ toJSON(matrix.variation) }}'
+
         steps:
           - name: 'Clone the builder'
             run: 'sh -c "$WF_CLONE"'
@@ -129,20 +132,14 @@ jobs:
 
           - uses: mk-pmb/github-ci-util-2405-pmb/act/install@experimental
 
-          - run: './B git_basecfg'
+          - run: 'ghciu ./B git_basecfg'
+          - run: 'ghciu ./B clone_lentic_repo'
+          - run: 'ghciu ./B verify_license'
 
-          - run: './B clone_lentic_repo'
-            env:
-                VARI_JSON: '${{ toJSON(matrix.variation) }}'
-
-          - run: './B verify_license'
-
-          - run: './B decode_variation'
+          - run: 'ghciu ./B decode_variation'
             id: v
-            env:
-                VARI_JSON: '${{ toJSON(matrix.variation) }}'
 
-          - run: './B apply_hotfixes'
+          - run: 'ghciu ./B apply_hotfixes'
 
           - name: 'Set up JDK'
             if: '${{ steps.v.outputs.java_ver }}'
@@ -162,12 +159,12 @@ jobs:
           - name: 'Build the project — this usually takes ${{
                 needs.prep.outputs.dura }}'
             id: g
-            run: './B gradle'
+            run: 'ghciu ./B gradle'
             if: '${{ steps.v.outputs.java_ver }}'
 
           - name: 'Grab the relevant binaries'
             if: '${{ steps.g.outputs.artifact }}'
-            run: './B grab'
+            run: 'ghciu ./B grab'
             env:
                 ARTIFACT: '${{ steps.g.outputs.artifact }}'
 

@@ -371,6 +371,7 @@ function build_detect_lentic_meta () {
     minecraft_version ) SIMP=(
       '!minecraft_version=' lentic/gradle.properties
       '<ini_sect[versions]>minecraft=' lentic/gradle/libs.versions.toml
+      '<ini_sect[versions]>fabric-api=\S+\+' lentic/gradle/libs.versions.toml
       '!minecraftVersion=' lentic/gradle/libs.versions.toml
       '!valminecraftVersion=' lentic/{*-,}fabric/build.gradle.kts
       );;
