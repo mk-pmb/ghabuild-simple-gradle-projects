@@ -176,10 +176,21 @@ function build_generate_matrix () {
   echo "vari=$V" >&6 || return $?
   build_predict_eta >&6 || return $?
 
-  nl -ba -- "$GITHUB_OUTPUT" || return $?
-  echo "Building $N_VARI variation(s)." \
-    "This will probably finish before ${MEM[eta_hr]}." \
-    >>"$GITHUB_STEP_SUMMARY"
+  vdo eval 'nl -ba -- "$GITHUB_OUTPUT"' || return $?
+
+  local RLS_TAG="rolling/${GITHUB_REF#*-}"
+  local REPO_URL="https://github.com/$GITHUB_REPOSITORY"
+  local RLS_SUBURL="/releases/tag/$RLS_TAG"
+
+  # To predict the artifact filename, we'd need to know the versions used,
+  # and they can only be determined after the hotfixes are applied.
+
+  ( echo "Building $N_VARI variation(s)." \
+      "This will probably finish before ${MEM[eta_hr]}."
+    echo "For the autorelease workflow, the release page will be:" \
+      "[\`…$RLS_SUBURL\`]($REPO_URL$RLS_SUBURL)"
+    echo
+  ) >>"$GITHUB_STEP_SUMMARY"
 }
 
 
