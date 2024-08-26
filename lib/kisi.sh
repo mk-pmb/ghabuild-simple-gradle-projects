@@ -31,7 +31,19 @@ function read_build_matrix_entry () {
 }
 
 
-function find_vsort () { find "$@" > >(sort --version-sort); }
+function find_vsort () {
+  local P='sort --version-sort' V=
+  if [[ "$1" == --curdirs=[0-9]* ]]; then
+    V="${1#*=}"
+    shift
+    (( V += 1 ))
+    P="cut -d / -sf $V- | $P"
+  fi
+  if [ "$1" == --unique ]; then P+=" $1"; shift; fi
+  find "$@" > >(eval "$P")
+}
+
+
 function unindent_unblank () { sed -nre 's~^\s*(\S)~\1~p' -- "$@"; }
 
 

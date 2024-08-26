@@ -555,9 +555,9 @@ function build_grab () {
 
   local NLF='tmp.new_lentic_files.txt'
   local UNC='unclutter_lentic_files_list'
-  find_vsort lentic/ -mindepth 1 -type d -name '.*' -prune , \
-    -newer tmp.variation.dict -print | cut -d / -sf 2- \
-    | sort --version-sort --unique \
+  find_vsort --curdirs=1 --unique \
+    lentic/ -mindepth 1 -type d -name '.*' -prune , \
+    -newer tmp.variation.dict -print \
     | "$GHCIU_DIR"/util/refine_text_by_commands.sh --opportunistic \
       "${JOB[$UNC]}" {util,lentic}/"$UNC"{.sed,/[A-Za-z0-9_]*} \
     >"$NLF" || return $?
@@ -592,7 +592,7 @@ function build_grab () {
 
   unzip -d "$JAR_UNP" -- "$RLS_JAR" || return $?
   local VDO_TEE_LOG='tmp.files_in_jar.txt'
-  vdo find_vsort "$JAR_UNP" || return $?
+  vdo find_vsort --curdirs=1 "$JAR_UNP" || return $?
   ghciu_stepsumm_dump_file "$VDO_TEE_LOG" || return $?
 }
 
