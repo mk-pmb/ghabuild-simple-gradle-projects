@@ -8,6 +8,7 @@ function build_init () {
   cd -- "$SELFPATH" || return $?
 
   if [ "$1" == --bypass-ghciu ]; then shift; "$@"; return $?; fi
+  local GHCIU_DIR="$(ghciu --print-ghciu-dir)"
   local CI_FUNCD="$(ghciu --print-funcs-dir)"
   [ -d "$CI_FUNCD" ] || return 4$(
     echo E: "Failed to detect CI_FUNCD" >&2)
@@ -136,12 +137,24 @@ function build_verify_license () {
 }
 
 
-function build_generate_matrix () {
+function unset_multiline_job_options () {
   # Drop settings that are allowed to contain newline characters:
   unset JOB[jar_add_job_files]
   unset JOB[jar_add_lentic_files]
   unset JOB[lentic_license_sha1s]
+  unset JOB[unclutter_lentic_files_list]
+}
 
+
+function build_dump_job_dict () {
+  local EDD='eqlines_dump_dict' EQLN_ADD_KEY_PREFIX='job_'
+  $EDD JOB || return $?$(echo E: $FUNCNAME: "$EDD failed." \
+    "Do yo need to add an option to unset_multiline_job_options?" >&2)
+}
+
+
+function build_generate_matrix () {
+  unset_multiline_job_options
   local K= V=
   for K in "${!JOB[@]}"; do
     case "$K" in
@@ -150,9 +163,7 @@ function build_generate_matrix () {
         return 3;;
     esac
   done
-
-  EQLN_ADD_KEY_PREFIX='job_' eqlines_dump_dict JOB >&6 || return $?
-
+  build_dump_job_dict >&6 || return $?
   V='variations.ndjson'
   K="$JOB_SPEC_DIR/$V"
   [ ! -s "$K" ] || cat -- "$K" >"tmp.$V" || return $?
@@ -201,8 +212,8 @@ function build_predict_eta () {
 
 
 function build_decode_variation () {
-  EQLN_ADD_KEY_PREFIX='job_' eqlines_dump_dict JOB >&6 || return $?
-
+  unset_multiline_job_options
+  build_dump_job_dict >&6 || return $?
   echo "$VARI_JSON" >tmp.variation.json || return $?
 
   VARI=()
@@ -531,8 +542,14 @@ function build_grab () {
   [ -n "$ARTIFACT" ] || return 4$(echo 'E: Empty artifact name!' >&2)
 
   local NLF='tmp.new_lentic_files.txt'
+  local UNC='unclutter_lentic_files_list'
   find_vsort lentic/ -mindepth 1 -type d -name '.*' -prune , \
-    -newer tmp.variation.dict -print | cut -d / -sf 2- >"$NLF" || return $?
+    -newer tmp.variation.dict -print | cut -d / -sf 2- \
+    | sort --version-sort --unique \
+    | "$GHCIU_DIR"/util/refine_text_by_commands.sh --opportunistic \
+      "${JOB[$UNC]}" {util,lentic}/"$UNC"{.sed,/[A-Za-z0-9_]*} \
+    >"$NLF" || return $?
+  ensure_newly_created_lentic_files_list_limits "$NLF" || return $?
   ghciu_stepsumm_dump_file "$NLF" || return $?
 
   local JAR_UNP='jar-unpacked'
@@ -685,6 +702,25 @@ function github_ci_workaround_fake_success_until_date () {
   fmt_markdown_textblock stepsumm deco '⚠️' "$W"
   [ -n "$D" ] || return 4
 }
+
+
+function ensure_newly_created_lentic_files_list_limits () {
+  local NLF_LIVE="$1"
+  local NLF_SIZE="$(stat -c %s -- "$NLF_LIVE")"
+  local MAX_SIZE=256000
+  if [ "$NLF_SIZE" -le "$MAX_SIZE" ]; then
+    echo D: $FUNCNAME: "real size $NLF_SIZE ≤ max $MAX_SIZE, ok."
+    return 0
+  fi
+  echo W: $FUNCNAME: "real size $NLF_SIZE > max $MAX_SIZE, gonna truncate!" >&2
+  local TMPF="tmp.$FUNCNAME.weights.txt"
+  <"$NLF_LIVE" "$GHCIU_DIR"/util/tally_files_list_directory_weights.sh \
+    | head --lines=30 >"$TMPF"
+  ghciu_stepsumm_dump_file "$TMPF" --count-lines || return $?
+  mv --verbose --no-target-directory -- "$NLF_LIVE"{,.huge} || return $?
+  head --bytes="$MAX_SIZE" -- "$NLF_LIVE".huge >"$NLF_LIVE" || return $?
+}
+
 
 
 
