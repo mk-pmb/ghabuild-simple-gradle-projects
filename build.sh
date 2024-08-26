@@ -521,7 +521,7 @@ function build_gradle () {
 
   FMT=h2 fmt_markdown_textblock stepsumm deco --volcano \
     "Gradle failed, rv=$GR_RV"
-  ghciu_stepsumm_dump_file "$GR_HL" --count-lines \
+  ghciu_stepsumm_dump_file "$GR_HL" --count-lines --open \
     || true # Failing to dump is meaningles in light of $GR_RV:
   return "$GR_RV"
 }
