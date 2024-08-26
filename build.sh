@@ -6,8 +6,16 @@ function build_init () {
   export LANG{,UAGE}=en_US.UTF-8  # make error messages search engine-friendly
   local SELFPATH="$(readlink -m -- "$BASH_SOURCE"/..)"
   cd -- "$SELFPATH" || return $?
-  if [ "$1" == --bypass-mutex ]; then shift; "$@"; return $?; fi
 
+  if [ "$1" == --bypass-ghciu ]; then shift; "$@"; return $?; fi
+  local CI_FUNCD="$(ghciu --print-funcs-dir)"
+  [ -d "$CI_FUNCD" ] || return 4$(
+    echo E: "Failed to detect CI_FUNCD" >&2)
+  source -- "$CI_FUNCD"/ci_cli_init.sh || return $?
+  source_these_files --lib "$CI_FUNCD"/*.sh || return $?
+  source_these_files --lib lib/*.sh || return $?
+
+  if [ "$1" == --bypass-mutex ]; then shift; "$@"; return $?; fi
   if [ -n "$GRADLE_BUILD_HELPER_MAIN_PID" ]; then
     echo E: "GRADLE_BUILD_HELPER_MAIN_PID = '$GRADLE_BUILD_HELPER_MAIN_PID'" >&2
     export GRADLE_BUILD_HELPER_MAIN_PID=$BASHPID
@@ -18,13 +26,6 @@ function build_init () {
   >"$BUILD_ERR_LOG" || return $?$(
     echo E: "Failed to create build error log file: $BUILD_ERR_LOG" >&2)
   exec 2> >(exec tee -- "$BUILD_ERR_LOG" >&2)
-
-  local GHCIU_FUNCS_DIR="$(ghciu --print-funcs-dir)"
-  [ -d "$GHCIU_FUNCS_DIR" ] || return 4$(
-    echo E: "Failed to detect GHCIU_FUNCS_DIR" >&2)
-  source -- "$GHCIU_FUNCS_DIR"/vdo.sh --lib || return $?
-  source -- lib/eqlines.sh --lib || return $?
-  source -- lib/kisi.sh --lib || return $?
 
   [ -n "$GITHUB_OUTPUT" ] || local GITHUB_OUTPUT='tmp.ghout.txt'
   [ -n "$GITHUB_STEP_SUMMARY" ] || local GITHUB_STEP_SUMMARY='tmp.ghsum.txt'
