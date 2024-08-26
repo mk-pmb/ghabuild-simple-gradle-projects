@@ -484,7 +484,8 @@ function build_gen_artifact_name () {
   esac
   [ -z "$MC_VER" ] || ARTI+="$(version_triad_if_set "$MC_VER" -mc)"
 
-  local -p >&2
+  local -p >tmp.artifact-name-debug.txt
+
   ARTI+="-$(date --utc +'%y%m%d-%H%M%S')"
   ARTI="${ARTI,,}.jar"
   echo "$ARTI"
