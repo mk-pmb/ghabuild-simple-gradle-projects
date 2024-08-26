@@ -200,6 +200,10 @@ function download_potential_license_files () {
   echo "Found $N_FOUND license files."
   [ "$N_FOUND" -ge 1 ] || return 0
   sha1sum --binary -- "${FOUND[@]}" >"$CACHE"
+  git add -- "${FOUND[@]}"
+  local MSG='Add license file'
+  [ "$N_FOUND" -lt 2 ] || MSG+='s'
+  git commit -m "$MSG" -- "${FOUND[@]}"
 }
 
 
