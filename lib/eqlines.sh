@@ -23,8 +23,11 @@ function eqlines_dump_dict () {
     eval 'VAL="${'"$DICT"'[$KEY]}"'
     case "$VAL" in
       *$'\n'* )
-        echo "E: Multi-line value currently not supported in dict $DICT" \
-          "key «$KEY» = «$VAL»" >&2
+        VAL="Multi-line value currently not supported in dict $DICT key "$(
+          )"«$KEY» = «$VAL», trace: "
+        KEY="${FUNCNAME[*]}"
+        KEY="${KEY// / ‹ }"
+        echo E: $FUNCNAME: "$VAL$KEY" >&2
         return 3;;
     esac
     KEY="${KEY#$EQLN_STRIP_KEY_PREFIX}"
