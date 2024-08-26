@@ -32,7 +32,11 @@ function build_init () {
   [ "$USER" == runner ] || >"$GITHUB_STEP_SUMMARY" >"$GITHUB_OUTPUT"
   exec </dev/null
   exec 6>>"$GITHUB_OUTPUT" || return $?
-  exec 7>>"$GITHUB_STEP_SUMMARY" || return $?
+  # Bad idea: # exec 7>>"$GITHUB_STEP_SUMMARY" || return $?
+  # ^-- Now that we are using ghciu, its length limit protection may switch
+  #     out the file, which would invalidate our file handle. Also if we call
+  #     other dump functions that use their own redirect, our output position
+  #     may lag behind their output and thus overwrite it.
 
   [ -n "$JOB_SPEC_DIR" ] || export JOB_SPEC_DIR='tmp.job'
   local -A MEM=()
@@ -60,7 +64,8 @@ function build_init () {
   local RV=$?
   [ "$RV" == 0 ] && return 0
 
-  ghstep_dump_file 'Build step error log' text "$BUILD_ERR_LOG" || return $?
+  cd -- "$SELFPATH" || true
+  ghciu_stepsumm_dump_file "$BUILD_ERR_LOG" --count-lines || return $?
   [ -z "$CI" ] || echo :
   echo "E: Build task $TASK failed, rv=$RV"
 
@@ -90,7 +95,7 @@ function build_clone_lentic_repo () {
     lentic
     )
   printf -- '`%s` &rarr; `%s`\n\n' "${FUNCNAME#*_}" "${CLONE_CMD[*]}" \
-    >&7 || return $?
+    >>"$GITHUB_STEP_SUMMARY" || return $?
 
   if [ -f lentic/.git/config ]; then
     echo 'Skip cloning: Repo lentic already exists.'
@@ -162,7 +167,8 @@ function build_generate_matrix () {
 
   nl -ba -- "$GITHUB_OUTPUT" || return $?
   echo "Building $N_VARI variation(s)." \
-    "This will probably finish before ${MEM[eta_hr]}." >&7
+    "This will probably finish before ${MEM[eta_hr]}." \
+    >>"$GITHUB_STEP_SUMMARY"
 }
 
 
@@ -272,24 +278,27 @@ function build_apply_hotfixes__fallible () {
   local HOTFIX_BASEDIR="$JOB_SPEC_DIR"/hotfixes
   mkdir --parents -- "$HOTFIX_BASEDIR"
 
-  vdo git_in_lentic log --oneline -n 20 \
-    | ghstep_dump_file 'git history before hotfixes' text || return $?
+  local TMPF='tmp.hotfix.git_history_before.txt'
+  vdo git_in_lentic log --oneline -n 20 >"$TMPF"
+  ghciu_stepsumm_dump_file "$TMPF" --count-lines || return $?
   build_apply_hotfixes__phase early || return $?
   build_apply_hotfixes__phase fix || return $?
   build_apply_hotfixes__phase late || return $?
 
-  local MODIF='tmp.hotfix.modif_files.txt'
-  VDO_TEE_LOG="$MODIF" vdo git_in_lentic status --short
-  ghstep_dump_file 'Hotfixed files' text "$MODIF" || return $?
+  TMPF='tmp.hotfix.modified_files.txt'
+  VDO_TEE_LOG="$TMPF" vdo git_in_lentic status --short
+  ghciu_stepsumm_dump_file "$TMPF" --count-lines || return $?
 
-  if [ ! -s "$MODIF" ]; then
+  if [ ! -s "$TMPF" ]; then
     echo "D: Hotfixes caused no changes in git-tracked files."
     return 0
   fi
 
   git_in_lentic commit -m 'Apply hotfixes' || return $?
-  git_in_lentic format-patch --irreversible-delete --stdout 'HEAD~1..HEAD' \
-    | ghstep_dump_file 'Hotfix patch' diff || return $?
+  TMPF='tmp.hotfixes.patch'
+  git_in_lentic format-patch --irreversible-delete --stdout \
+    'HEAD~1..HEAD' >"$TMPF" || return $?
+  FMT=diff ghciu_stepsumm_dump_file "$TMPF" --count-lines || return $?
 }
 
 
@@ -507,10 +516,13 @@ function build_gradle () {
   VDO_TEE_LOG="$GR_LOG" vdo ./gradlew build "${GW_OPT[@]}" && return 0
   local GR_RV=$?
 
-  local GR_HL='../tmp.gradlew.hl.log'
+  local GR_HL='../tmp.gradlew.highlights.log'
   "$SELFPATH"/lib/gradle_log_highlights.sed "$GR_LOG" | tee -- "$GR_HL"
-  fmt_markdown_details_file "Gradle failed, rv=$GR_RV" text "$GR_HL" >&7
 
+  FMT=h2 fmt_markdown_textblock stepsumm deco --volcano \
+    "Gradle failed, rv=$GR_RV"
+  ghciu_stepsumm_dump_file "$GR_HL" --count-lines \
+    || true # Failing to dump is meaningles in light of $GR_RV:
   return "$GR_RV"
 }
 
@@ -521,7 +533,7 @@ function build_grab () {
   local NLF='tmp.new_lentic_files.txt'
   find_vsort lentic/ -mindepth 1 -type d -name '.*' -prune , \
     -newer tmp.variation.dict -print | cut -d / -sf 2- >"$NLF" || return $?
-  ghstep_dump_file 'Newly created lentic files' text "$NLF" || return $?
+  ghciu_stepsumm_dump_file "$NLF" || return $?
 
   local JAR_UNP='jar-unpacked'
   mkdir --parents -- "$JAR_UNP"
@@ -542,7 +554,7 @@ function build_grab () {
     echo "Artifact name: $ARTIFACT"
     echo '```'
     echo
-  ) >&7
+  ) >>"$GITHUB_STEP_SUMMARY"
 
   mkdir --parents -- "${JOB[release_dir]}" || return $?
   local RLS_JAR="${JOB[release_dir]}/$ARTIFACT"
@@ -552,7 +564,7 @@ function build_grab () {
   unzip -d "$JAR_UNP" -- "$RLS_JAR" || return $?
   local VDO_TEE_LOG='tmp.files_in_jar.txt'
   vdo find_vsort "$JAR_UNP" || return $?
-  ghstep_dump_file 'Files in the JAR' text "$VDO_TEE_LOG" || return $?
+  ghciu_stepsumm_dump_file "$VDO_TEE_LOG" || return $?
 }
 
 
@@ -578,7 +590,8 @@ function build_grab_guess_jar_file () {
   find_vsort "$JAR_DIR" -maxdepth 1 -type f -name '*.jar' \
     -printf '%f\n' >"$JAR_LIST" || true
   vdo base64 --wrap=512 -- "$JAR_LIST"
-  ghstep_dump_file 'JARs found before filtering' text "$JAR_LIST" || return $?
+  ghciu_stepsumm_dump_file "$JAR_LIST" \
+    --title 'JARs found before filtering' || return $?
   if [ ! -s "$JAR_LIST" ]; then
     build_grab_found_no_jars
     return 4
@@ -639,9 +652,10 @@ function build_grab_found_no_jars () {
 
 
 function github_ci_workaround_fake_success_until_date () {
-  local D="${JOB[$FUNCNAME]}" J= UTS= W=
+  local D="${JOB[$FUNCNAME]}" J= UTS= W= FMT=h2
   if [ -z "$D" ]; then
     W='If this failure is too noisy, consider the ¹ option.'
+    FMT=inline
   else
     UTS="$(date +%s --date="$D")"
     [ "${UTS:-0}" -ge 1 ] || W='Failed to parse the date for ¹.'
@@ -662,14 +676,13 @@ function github_ci_workaround_fake_success_until_date () {
     else
       [ -n "$W" ] || W="Creating decoy file: \`$J\`"
       echo "JOB[$FUNCNAME]='$YMD'" >"$D" || return $?$(
-        echo "E: Failed to create file: $D"$'\n' >&7)
+        echo "E: Failed to create file: $D"$'\n' >>"$GITHUB_STEP_SUMMARY")
       zip -j0o "$J" -- "$D" || return $?$(
-        echo "E: Failed to JAR-pack file: $J"$'\n' >&7)
+        echo "E: Failed to JAR-pack file: $J"$'\n' >>"$GITHUB_STEP_SUMMARY")
     fi
   fi
-  W="${W//¹/\`$FUNCNAME\`}"
-  W="## ⚠️ ⚠️ W: $W ⚠️ ⚠️"
-  echo $'\n'"$W"$'\n' >&7
+  W="W: ${W//¹/\`$FUNCNAME\`}"
+  fmt_markdown_textblock stepsumm deco '⚠️' "$W"
   [ -n "$D" ] || return 4
 }
 

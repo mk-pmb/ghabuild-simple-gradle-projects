@@ -2,41 +2,6 @@
 # -*- coding: utf-8, tab-width: 2 -*-
 
 
-function fmt_markdown_details_file () {
-  local TITLE="$1"; shift
-  local FMT="$1"; shift
-  local FILE="$1"; shift
-  local OPT="$1"; shift
-  [ -n "$OPT" ] || case "$FILE" in
-    *.txt ) OPT='--count-lines';;
-  esac
-  case "$OPT" in
-    '' ) ;;
-    --count-lines )
-      sleep 1s # Wait for GitHub's file system cache to settle
-      local N_LN="$(wc --lines -- "$FILE" | grep -oPe '^\d+')"
-      local SIZE="$(
-        du --apparent-size --human-readable -- "$FILE" | grep -oPe '^\w+')"
-      TITLE+=" ($SIZE bytes, $N_LN lines)"
-      ;;
-    * ) echo "E: $FUNCNAME: Unsupported option: $OPT"; return 3;;
-  esac
-  echo "<details><summary>$TITLE</summary>"
-  echo
-  echo '```'"$FMT"
-  sed -re '/^\x60{3}/s~^.~\&#96;~' -- "${FILE:-/dev/stdin}"
-  echo '```'
-  echo
-  echo "</details>"
-  echo
-}
-
-
-function ghstep_dump_file () {
-  fmt_markdown_details_file "$@" >>"$GITHUB_STEP_SUMMARY" || return $?
-}
-
-
 function status_report_tall_gapped_on_ci () {
   local M='+success'
   [ "$1" == 0 ] || M="-FAIL! rv=$1"
