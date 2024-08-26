@@ -1,0 +1,30 @@
+# -*- coding: utf-8, tab-width: 2 -*-
+
+JOB[estimated_build_duration_per_variation]='7–10 minutes'
+JOB[max_build_duration_sec_per_variation]=$(( 10 * 60 ))
+JOB[github_ci_workaround_fake_success_until_date]='2024-08-20'
+JOB[lentic_url]='https://github.com/EngineHub/WorldEditCUI.git'
+JOB[lentic_ref]='mc/1.21'
+
+########################################################################
+# WE CUI seems slow to update? Look at their branch list!
+#=======================================================================
+# 2024-08-26: Just because users are blocked¹ from discussing stopgaps
+#     for a new Minecraft version, doesn't mean the devs aren't already
+#     working on it or even have an official branch for that. They may
+#     have just forgotton to mention that the official update is the
+#     reason for blocking the stopgap discussion.
+#     ¹ http://web.archive.org/web/20240826040425/
+#       https://github.com/EngineHub/WorldEditCUI/pull/109
+#
+
+
+JOB[hotfix_bash_early]='./util/version_detectors/project_version_fallback_git_describe.sh'
+
+JOB[lentic_license_sha1s]='0dc8a06dfdfafb96022348ca1667fd5a3e32717b *LICENSE'
+JOB[jar_add_lentic_files]='LICENSE -> LICENSE.EPL-2.0.txt'
+
+JOB[unclutter_lentic_files_list]='--sed=-re
+  1i WE CUI mc/1.21
+  \:/(re|)(build|compuile)/(classes|generated-sources)/:d
+  '
