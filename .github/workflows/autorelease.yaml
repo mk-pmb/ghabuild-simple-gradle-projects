@@ -15,6 +15,8 @@ jobs:
             contents: write
         steps:
 
+          - uses: actions/checkout@v4
+
           - uses: actions/download-artifact@v4
             name: 'Download ALL the artifacts!'
             with:
@@ -36,6 +38,8 @@ jobs:
                       echo :::
                     done
                     echo tag="rolling/${GITHUB_REF#*-}" >>"$GITHUB_OUTPUT"
+                    git show --no-patch --format=tformat:%B -- "$GITHUB_SHA" \
+                      >head_commit_body.txt
 
           - name: 'Publish JAR file into release'
             id: rls
@@ -44,7 +48,11 @@ jobs:
                 allowUpdates: True
                 artifactErrorsFailBuild: True
                 artifacts: 'release/*'
-                body: ''
+                bodyFile: 'head_commit_body.txt'
+                # ^-- Using `body: ''` resulted in GitHub showing an empty
+                #     release body in the release editor, but nonetheless
+                #     displaying an outdated commit message on the release
+                #     info page.
                 makeLatest: False
                 prerelease: True
                 removeArtifacts: True # Remove old files from release.
