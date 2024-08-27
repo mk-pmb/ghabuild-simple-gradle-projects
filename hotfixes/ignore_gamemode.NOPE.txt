@@ -1,0 +1,23 @@
+#!/bin/bash
+# -*- coding: utf-8, tab-width: 2 -*-
+
+# This patch is probably futile without WE becoming a client side mod,
+# as explained in https://github.com/EngineHub/WorldEdit/issues/1601 .
+# However, the experiment is cheap enough to try anyway.
+#
+# Update: It is in fact useless.
+#         See https://github.com/mk-pmb/minecraft-mod-worldedit/issues/1
+
+cd lentic
+RGX=' == GameType.[A-Z]+'
+sed -rf <(echo '
+  s~ \&\& \S+\.getGameModeForPlayer\(\)'"$RGX"'~\a~g
+  # The \a will be removed soon, but for now we need to fixup the remaining
+  # criteria to evade `> Task :worldedit-fabric:checkstyleMain FAILED`.
+
+  s~\(([^()]+)\a\)~\1~g
+  /^import net\.minecraft\.world\.level\.GameType;?$/d
+
+
+  s~\a~~g
+  ') -i -- $(git grep -lPe "$RGX")
