@@ -86,6 +86,27 @@ function build_git_basecfg () {
 }
 
 
+function build_add_diagnostic_files () {
+  local DEST_DIR="$SELFPATH"/tmp.diag
+  mkdir --parents -- "$DEST_DIR"
+  local SRC= BFN= FEXT= COUNTER= DEST_FILE=
+  for SRC in "$@"; do
+    BFN="$(basename -- "$SRC")"
+    if [[ "$BFN" =~ \.[a-z0-9]{1,8}$ ]]; then
+      FEXT="${BASH_REMATCH[0]}"
+      BFN="${BFN%$FEXT}"
+    fi
+    COUNTER=
+    while true; do
+      DEST_FILE="$DEST_DIR/$BFN${COUNTER:+.}$COUNTER$FEXT"
+      [ -f "$DEST_FILE" ] || break
+      let COUNTER="$COUNTER+1"
+    done
+    cp --no-target-directory -- "$SRC" "$DEST_FILE" || return $?
+  done
+}
+
+
 function build_clone_lentic_repo () {
   local CLONE_CMD=(
     git
