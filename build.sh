@@ -556,17 +556,21 @@ function build_gradle () {
 
   vdo ./gradlew clean "${GW_OPT[@]}" || true
   vdo rm -r -- .gradle .idea build || true
-  local GR_LOG='../tmp.gradlew.log'
-  VDO_TEE_LOG="$GR_LOG" vdo ./gradlew build "${GW_OPT[@]}" && return 0
+  local GR_LOG='tmp.gradlew.log'
+  VDO_TEE_LOG="../$GR_LOG" vdo ./gradlew build "${GW_OPT[@]}" && return 0
   local GR_RV=$?
+  cd -- "$SELFPATH" || return $?$(echo E: $FUNCNAME: >&2 \
+    'Failed to chdir back after running gradle.')
 
-  local GR_HL='../tmp.gradlew.highlights.log'
+  local GR_HL='tmp.gradlew.highlights.log'
   "$SELFPATH"/lib/gradle_log_highlights.sed "$GR_LOG" | tee -- "$GR_HL"
 
   FMT=h2 fmt_markdown_textblock stepsumm deco --volcano \
     "Gradle failed, rv=$GR_RV"
   ghciu_stepsumm_dump_file "$GR_HL" --count-lines --open \
     || true # Failing to dump is meaningles in light of $GR_RV:
+
+  build_collect_checkstyle_violations --stepsumm || return $?
   return "$GR_RV"
 }
 
@@ -752,6 +756,49 @@ function ensure_newly_created_lentic_files_list_limits () {
   ghciu_stepsumm_dump_file "$TMPF" --count-lines || return $?
   mv --verbose --no-target-directory -- "$NLF_LIVE"{,.huge} || return $?
   head --bytes="$MAX_SIZE" -- "$NLF_LIVE".huge >"$NLF_LIVE" || return $?
+}
+
+
+function build_collect_checkstyle_violations () {
+  local TMPF='tmp.checkstyle-violations.'
+
+  case "$1" in
+    '' ) ;;
+    --stepsumm )
+      shift
+      TMPF+='md'
+      VDO_TEE_LOG="$TMPF" vdo "$FUNCNAME" "$@" || return $?
+      cat -- "$TMPF" >>"$GITHUB_STEP_SUMMARY" || return $?
+      return 0;;
+    * ) echo E: $FUNCNAME: "Unsupported argument: $1"; return 4;;
+  esac
+
+  TMPF+='files.txt'
+  sed -nrf <(echo '
+    s~\bCheckstyle rule violations were found. See the report at:\s*~\n~
+    s~\n(file)://~\n~
+    s~^[^\n]*\n~~p
+    ') -- "$GR_LOG" | sort --version-sort --unique >"$TMPF"
+  if [ ! -s "$TMPF" ]; then rm -- "$TMPF"; return 0; fi
+  echo
+  echo '<details open><summary>Checkstyle complaints</summary>'
+  echo '<hr>'
+  echo
+  # ghciu_stepsumm_dump_file "$TMPF" --count-lines
+  local REPORTS=()
+  readarray -t REPORTS <"$TMPF"
+  local REP=
+  for REP in "${REPORTS[@]}"; do
+    REP="${REP#$PWD/}"
+    echo "## 📒 \`${REP#lentic/}\`"
+    echo
+    build_add_diagnostic_files "$REP"
+    "$SELFPATH"/util/checkstyle_violations_html_to_markdown.sed -- "$REP"
+    echo
+  done
+  echo '<hr>'
+  echo '</details>'
+  echo
 }
 
 
