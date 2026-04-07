@@ -24,6 +24,10 @@ jobs:
             # but unfortunately, currently (2023-05-04), GitHub doesn't
             # seem to provide any identity information to the remotely
             # called workflow.
+            #
+            # (Update 2026-04-07: In some scenarios, the GitHub action
+            # `jenseng/get-job-workflow` might be a nicer replacement.)
+            #
             # The only repository information we get is the one that
             # called us, i.e. the job description repo.
             # So, in order to learn _anything_ about our job, the very
@@ -48,6 +52,8 @@ jobs:
             run: 'bash -c "$IGNITE"'
             env:
                 IGNITE: |
+                    # Before copying this, check if the GitHub action
+                    # `jenseng/get-job-workflow` better fits your need!
                     TI=tmp.ignite.sh
                     WF_FROM="$GITHUB_WORKFLOW_REF"
                     WF_FROM="${WF_FROM%@*}"
